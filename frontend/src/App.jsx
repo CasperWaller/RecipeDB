@@ -17,6 +17,8 @@ export default function App() {
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [prepTime, setPrepTime] = useState("");
+  const [cookTime, setCookTime] = useState("");
   const [ingredientsText, setIngredientsText] = useState("");
   const [tagsText, setTagsText] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -147,6 +149,8 @@ export default function App() {
     const payload = {
       title: title.trim(),
       description: description.trim() || null,
+      prep_time: prepTime.trim() ? Number(prepTime) : null,
+      cook_time: cookTime.trim() ? Number(cookTime) : null,
       ingredients: ingredientNames.map((name) => ({ name })),
       tags: tagNames.map((name) => ({ name })),
     };
@@ -164,6 +168,8 @@ export default function App() {
 
       setTitle("");
       setDescription("");
+      setPrepTime("");
+      setCookTime("");
       setIngredientsText("");
       setTagsText("");
       await loadRecipes();
@@ -468,6 +474,34 @@ export default function App() {
                   className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-0 placeholder:text-slate-400 focus:border-slate-400"
                 />
               </label>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="block">
+                  <span className="mb-1 block text-sm font-medium text-slate-700">Prep Time (min)</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={prepTime}
+                    onChange={(event) => setPrepTime(event.target.value)}
+                    placeholder="e.g. 15"
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-0 placeholder:text-slate-400 focus:border-slate-400"
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="mb-1 block text-sm font-medium text-slate-700">Cook Time (min)</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={cookTime}
+                    onChange={(event) => setCookTime(event.target.value)}
+                    placeholder="e.g. 30"
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-0 placeholder:text-slate-400 focus:border-slate-400"
+                  />
+                </label>
+              </div>
 
               <label className="block">
                 <span className="mb-1 block text-sm font-medium text-slate-700">Tags</span>
