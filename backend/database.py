@@ -1,14 +1,24 @@
 import os
+from urllib.parse import urlsplit, urlunsplit
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
 def _normalize_database_url(url: str) -> str:
+    url = (url or "").strip()
     if url.startswith("postgres://"):
-        return "postgresql+psycopg://" + url[len("postgres://"):]
-    if url.startswith("postgresql://") and "+" not in url.split("://", 1)[0]:
-        return "postgresql+psycopg://" + url[len("postgresql://"):]
-    return url
+        url = "postgresql+psycopg://" + url[len("postgres://"):]
+    elif url.startswith("postgresql://") and "+" not in url.split("://", 1)[0]:
+        url = "postgresql+psycopg://" + url[len("postgresql://"):]
+
+    parsed = urlsplit(url)
+    cleaned = parsed._replace(
+        netloc=parsed.netloc.strip(),
+        path=parsed.path.strip(),
+        query=parsed.query.strip(),
+        fragment=parsed.fragment.strip(),
+    )
+    return urlunsplit(cleaned)
 
 
 DATABASE_URL = _normalize_database_url(
