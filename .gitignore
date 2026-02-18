@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyd
+*.so
+*.egg-info/
+.venv/
+venv/
+.env
+
+# Databases / local runtime
+*.db
+*.sqlite3
+
+# Frontend (Vite/Node)
+frontend/node_modules/
+frontend/.vite/
+frontend/dist/
+frontend/.bin/
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
+frontend/pnpm-debug.log*
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

@@ -1,5 +1,28 @@
 from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional, List
+from datetime import datetime
+
+
+class UserCreate(BaseModel):
+    username: str
+    password: str
+
+
+class UserLogin(BaseModel):
+    username: str
+    password: str
+
+
+class UserPublic(BaseModel):
+    id: int
+    username: str
+    is_admin: bool
+    model_config = ConfigDict(from_attributes=True)
+
+
+class AuthTokenResponse(BaseModel):
+    token: str
+    user: UserPublic
 
 # Ingredient schemas
 class IngredientBase(BaseModel):
@@ -23,6 +46,23 @@ class Tag(TagBase):
     id: int
     model_config = ConfigDict(from_attributes=True)
 
+
+# Comment schemas
+class CommentBase(BaseModel):
+    content: str
+
+
+class CommentCreate(CommentBase):
+    pass
+
+
+class Comment(CommentBase):
+    id: int
+    recipe_id: int
+    created_at: Optional[datetime] = None
+    created_by_username: Optional[str] = None
+    model_config = ConfigDict(from_attributes=True)
+
 # Recipe schemas
 class RecipeBase(BaseModel):
     title: str
@@ -39,4 +79,6 @@ class Recipe(RecipeBase):
     id: int
     ingredients: List[Ingredient] = Field(default_factory=list)
     tags: List[Tag] = Field(default_factory=list)
+    comments: List[Comment] = Field(default_factory=list)
+    created_by_username: Optional[str] = None
     model_config = ConfigDict(from_attributes=True)

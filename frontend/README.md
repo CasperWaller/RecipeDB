@@ -1,5 +1,22 @@
 # React + Vite
 
+## Environment Variables
+
+Create a `.env` file in `frontend/` (or set this in your hosting provider):
+
+```
+VITE_API_BASE_URL=https://your-backend-domain
+```
+
+Backend also requires environment variables (set in your backend host):
+
+```
+DATABASE_URL=postgresql+psycopg://<user>:<password>@<host>:5432/<db>
+CORS_ORIGINS=https://your-frontend-domain
+```
+
+Examples are included in `frontend/.env.example` and `backend/.env.example`.
+
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
 Currently, two official plugins are available:

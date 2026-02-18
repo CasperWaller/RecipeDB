@@ -1,7 +1,37 @@
-from sqlalchemy import Column, Integer, Text, ForeignKey, TIMESTAMP, Index
+from sqlalchemy import Column, Integer, Text, ForeignKey, TIMESTAMP, Index, Boolean
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from .database import Base
+
+
+class User(Base):
+    __tablename__ = "users"
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(Text, nullable=False, unique=True, index=True)
+    password_hash = Column(Text, nullable=False)
+    is_admin = Column(Boolean, nullable=False, default=False, server_default="false")
+    created_at = Column(TIMESTAMP, server_default=func.now())
+
+
+class AuthToken(Base):
+    __tablename__ = "auth_tokens"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    token = Column(Text, nullable=False, unique=True, index=True)
+    created_at = Column(TIMESTAMP, server_default=func.now())
+    user = relationship("User")
+
+
+class RecipeAuthor(Base):
+    __tablename__ = "recipe_authors"
+    recipe_id = Column(Integer, ForeignKey("recipes.id"), primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+
+
+class CommentAuthor(Base):
+    __tablename__ = "comment_authors"
+    comment_id = Column(Integer, ForeignKey("recipe_comments.id"), primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
 
 class Recipe(Base):
     __tablename__ = "recipes"
@@ -14,6 +44,7 @@ class Recipe(Base):
     created_at = Column(TIMESTAMP, server_default=func.now())
     ingredients = relationship("Ingredient", secondary="recipe_ingredients", back_populates="recipes")
     tags = relationship("Tag", secondary="recipetags", back_populates="recipes")
+    comments = relationship("RecipeComment", back_populates="recipe", cascade="all, delete-orphan")
 
 class Ingredient(Base):
     __tablename__ = "ingredients"
@@ -45,3 +76,12 @@ class RecipeTag(Base):
     __tablename__ = "recipetags"
     recipe_id = Column(Integer, ForeignKey("recipes.id"), primary_key=True)
     tag_id = Column(Integer, ForeignKey("tags.id"), primary_key=True)
+
+
+class RecipeComment(Base):
+    __tablename__ = "recipe_comments"
+    id = Column(Integer, primary_key=True, index=True)
+    recipe_id = Column(Integer, ForeignKey("recipes.id"), nullable=False, index=True)
+    content = Column(Text, nullable=False)
+    created_at = Column(TIMESTAMP, server_default=func.now())
+    recipe = relationship("Recipe", back_populates="comments")
