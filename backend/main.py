@@ -147,6 +147,26 @@ def delete_recipe(
     return recipe
 
 
+@app.put("/recipes/{recipe_id}", response_model=schemas.Recipe)
+def update_recipe(
+    recipe_id: int,
+    recipe: schemas.RecipeCreate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    existing = crud.get_recipe(db, recipe_id)
+    if existing is None:
+        raise HTTPException(status_code=404, detail="Recipe not found")
+
+    if not current_user.is_admin and not crud.is_recipe_owner(db, recipe_id, current_user.id):
+        raise HTTPException(status_code=403, detail="Only the recipe owner can edit this recipe")
+
+    updated = crud.update_recipe(db, recipe_id, recipe)
+    if updated is None:
+        raise HTTPException(status_code=404, detail="Recipe not found")
+    return updated
+
+
 @app.get("/recipes/{recipe_id}/comments", response_model=list[schemas.Comment])
 def read_recipe_comments(recipe_id: int, db: Session = Depends(get_db)):
     recipe = crud.get_recipe(db, recipe_id)

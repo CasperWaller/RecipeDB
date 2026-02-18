@@ -21,6 +21,14 @@ export default function App() {
   const [cookTime, setCookTime] = useState("");
   const [ingredientsText, setIngredientsText] = useState("");
   const [tagsText, setTagsText] = useState("");
+  const [editMode, setEditMode] = useState(false);
+  const [editTitle, setEditTitle] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editPrepTime, setEditPrepTime] = useState("");
+  const [editCookTime, setEditCookTime] = useState("");
+  const [editIngredientsText, setEditIngredientsText] = useState("");
+  const [editTagsText, setEditTagsText] = useState("");
+  const [editSaving, setEditSaving] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchScope, setSearchScope] = useState("all");
   const [authMode, setAuthMode] = useState("login");
@@ -36,6 +44,9 @@ export default function App() {
   const [commentDeletingId, setCommentDeletingId] = useState(null);
   const selectedRecipe = recipes.find((recipe) => recipe.id === selectedRecipeId) || null;
   const isAdmin = Boolean(currentUser?.is_admin);
+  const canEditSelectedRecipe = Boolean(
+    selectedRecipe && currentUser && (isAdmin || selectedRecipe.created_by_username === currentUser.username)
+  );
 
   async function loadRecipes(options = {}) {
     const query = options.query ?? searchQuery;
@@ -109,6 +120,10 @@ export default function App() {
 
     loadCurrentUser();
   }, [token]);
+
+  useEffect(() => {
+    setEditMode(false);
+  }, [selectedRecipeId]);
 
   function getAuthHeaders() {
     return token ? { Authorization: `Bearer ${token}` } : {};
@@ -280,6 +295,86 @@ export default function App() {
       setError(err instanceof Error ? err.message : "Failed to delete recipe");
     } finally {
       setRecipeDeleting(false);
+    }
+  }
+
+  function startEditRecipe() {
+    if (!selectedRecipe) {
+      return;
+    }
+
+    setEditTitle(selectedRecipe.title || "");
+    setEditDescription(selectedRecipe.description || "");
+    setEditPrepTime(selectedRecipe.prep_time != null ? String(selectedRecipe.prep_time) : "");
+    setEditCookTime(selectedRecipe.cook_time != null ? String(selectedRecipe.cook_time) : "");
+    setEditIngredientsText((selectedRecipe.ingredients || []).map((item) => item.name).join(", "));
+    setEditTagsText((selectedRecipe.tags || []).map((item) => item.name).join(", "));
+    setEditMode(true);
+  }
+
+  function cancelEditRecipe() {
+    setEditMode(false);
+  }
+
+  async function handleUpdateRecipe(event) {
+    event.preventDefault();
+    if (!selectedRecipeId) {
+      return;
+    }
+
+    if (!token) {
+      setError("Please log in to edit recipes");
+      return;
+    }
+
+    if (!canEditSelectedRecipe) {
+      setError("Only the recipe owner can edit this recipe");
+      return;
+    }
+
+    if (!editTitle.trim()) {
+      setError("Title is required");
+      return;
+    }
+
+    const ingredientNames = editIngredientsText
+      .split(",")
+      .map((name) => name.trim())
+      .filter(Boolean);
+
+    const tagNames = editTagsText
+      .split(",")
+      .map((name) => name.trim())
+      .filter(Boolean);
+
+    const payload = {
+      title: editTitle.trim(),
+      description: editDescription.trim() || null,
+      prep_time: editPrepTime.trim() ? Number(editPrepTime) : null,
+      cook_time: editCookTime.trim() ? Number(editCookTime) : null,
+      ingredients: ingredientNames.map((name) => ({ name })),
+      tags: tagNames.map((name) => ({ name })),
+    };
+
+    setEditSaving(true);
+    setError("");
+    try {
+      const response = await fetch(`${API_BASE}/recipes/${selectedRecipeId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to update recipe (${response.status})`);
+      }
+
+      await loadRecipes();
+      setEditMode(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update recipe");
+    } finally {
+      setEditSaving(false);
     }
   }
 
@@ -588,16 +683,28 @@ export default function App() {
                           Created by {selectedRecipe.created_by_username || "Unknown user"}
                         </p>
                       </div>
-                      {isAdmin ? (
-                        <button
-                          type="button"
-                          onClick={handleDeleteRecipe}
-                          disabled={recipeDeleting}
-                          className="rounded-md border border-rose-200 px-2.5 py-1.5 text-xs font-medium text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          {recipeDeleting ? "Removing..." : "Remove Recipe"}
-                        </button>
-                      ) : null}
+                      <div className="flex items-center gap-2">
+                        {canEditSelectedRecipe ? (
+                          <button
+                            type="button"
+                            onClick={startEditRecipe}
+                            disabled={editMode}
+                            className="rounded-md border border-slate-300 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            Edit Recipe
+                          </button>
+                        ) : null}
+                        {isAdmin ? (
+                          <button
+                            type="button"
+                            onClick={handleDeleteRecipe}
+                            disabled={recipeDeleting}
+                            className="rounded-md border border-rose-200 px-2.5 py-1.5 text-xs font-medium text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {recipeDeleting ? "Removing..." : "Remove Recipe"}
+                          </button>
+                        ) : null}
+                      </div>
                     </div>
                     {selectedRecipe.description ? (
                       <p className="mt-1 text-sm text-slate-600">{selectedRecipe.description}</p>
@@ -621,6 +728,89 @@ export default function App() {
                       <strong>Prep/Cook:</strong>{" "}
                       {selectedRecipe.prep_time ?? "-"} / {selectedRecipe.cook_time ?? "-"} min
                     </div>
+
+                    {editMode ? (
+                      <form onSubmit={handleUpdateRecipe} className="mt-4 space-y-3 rounded-lg border border-slate-200 bg-white p-3">
+                        <p className="text-sm font-medium text-slate-900">Edit Recipe</p>
+                        <label className="block">
+                          <span className="mb-1 block text-xs font-medium text-slate-700">Title</span>
+                          <input
+                            type="text"
+                            value={editTitle}
+                            onChange={(event) => setEditTitle(event.target.value)}
+                            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-0 focus:border-slate-400"
+                          />
+                        </label>
+                        <label className="block">
+                          <span className="mb-1 block text-xs font-medium text-slate-700">Description</span>
+                          <textarea
+                            value={editDescription}
+                            onChange={(event) => setEditDescription(event.target.value)}
+                            rows={3}
+                            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-0 focus:border-slate-400"
+                          />
+                        </label>
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <label className="block">
+                            <span className="mb-1 block text-xs font-medium text-slate-700">Prep Time (min)</span>
+                            <input
+                              type="number"
+                              min="0"
+                              step="1"
+                              value={editPrepTime}
+                              onChange={(event) => setEditPrepTime(event.target.value)}
+                              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-0 focus:border-slate-400"
+                            />
+                          </label>
+                          <label className="block">
+                            <span className="mb-1 block text-xs font-medium text-slate-700">Cook Time (min)</span>
+                            <input
+                              type="number"
+                              min="0"
+                              step="1"
+                              value={editCookTime}
+                              onChange={(event) => setEditCookTime(event.target.value)}
+                              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-0 focus:border-slate-400"
+                            />
+                          </label>
+                        </div>
+                        <label className="block">
+                          <span className="mb-1 block text-xs font-medium text-slate-700">Ingredients</span>
+                          <input
+                            type="text"
+                            value={editIngredientsText}
+                            onChange={(event) => setEditIngredientsText(event.target.value)}
+                            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-0 focus:border-slate-400"
+                          />
+                        </label>
+                        <label className="block">
+                          <span className="mb-1 block text-xs font-medium text-slate-700">Tags</span>
+                          <input
+                            type="text"
+                            value={editTagsText}
+                            onChange={(event) => setEditTagsText(event.target.value)}
+                            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-0 focus:border-slate-400"
+                          />
+                        </label>
+                        <div className="flex gap-2">
+                          <button
+                            type="submit"
+                            disabled={editSaving}
+                            className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {editSaving ? "Saving..." : "Save Changes"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={cancelEditRecipe}
+                            disabled={editSaving}
+                            className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </form>
+                    ) : null}
 
                     <div className="mt-4 border-t border-slate-200 pt-4">
                       <h4 className="text-sm font-semibold text-slate-900">Comments</h4>

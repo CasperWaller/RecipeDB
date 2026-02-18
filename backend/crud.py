@@ -118,6 +118,55 @@ def create_recipe(db: Session, recipe: RecipeCreate, user_id: int):
     _attach_comment_authors(db, [db_recipe])
     return db_recipe
 
+
+def update_recipe(db: Session, recipe_id: int, recipe: RecipeCreate):
+    db_recipe = db.query(Recipe).options(
+        selectinload(Recipe.ingredients),
+        selectinload(Recipe.tags),
+        selectinload(Recipe.comments),
+    ).filter(Recipe.id == recipe_id).first()
+    if db_recipe is None:
+        return None
+
+    recipe_data = recipe.dict(exclude={"ingredients", "tags"})
+    for key, value in recipe_data.items():
+        setattr(db_recipe, key, value)
+
+    ingredients = []
+    for item in recipe.ingredients or []:
+        for raw in _split_names(item.name):
+            name = raw.strip().lower()
+            if not name:
+                continue
+            existing = db.query(Ingredient).filter(func.lower(Ingredient.name) == name).first()
+            if not existing:
+                existing = Ingredient(name=name)
+                db.add(existing)
+                db.flush()
+            ingredients.append(existing)
+
+    tags = []
+    for item in recipe.tags or []:
+        for raw in _split_names(item.name):
+            name = raw.strip().lower()
+            if not name:
+                continue
+            existing = db.query(Tag).filter(func.lower(Tag.name) == name).first()
+            if not existing:
+                existing = Tag(name=name)
+                db.add(existing)
+                db.flush()
+            tags.append(existing)
+
+    db_recipe.ingredients = ingredients
+    db_recipe.tags = tags
+
+    db.commit()
+    db.refresh(db_recipe)
+    _attach_recipe_authors(db, [db_recipe])
+    _attach_comment_authors(db, [db_recipe])
+    return db_recipe
+
 def delete_recipe(db: Session, recipe_id: int):
     db_recipe = db.query(Recipe).filter(Recipe.id == recipe_id).first()
     if db_recipe:
