@@ -194,6 +194,7 @@ export default function App() {
   const [commentText, setCommentText] = useState("");
   const [commentSaving, setCommentSaving] = useState(false);
   const [commentDeletingId, setCommentDeletingId] = useState(null);
+  const [pdfExporting, setPdfExporting] = useState(false);
   const [createIngredientFocusIndex, setCreateIngredientFocusIndex] = useState(null);
   const [editIngredientFocusIndex, setEditIngredientFocusIndex] = useState(null);
   const [sortBy, setSortBy] = useState(() => {
@@ -727,15 +728,19 @@ export default function App() {
       return;
     }
 
-    const { jsPDF } = await import("jspdf");
+    setPdfExporting(true);
+    setError("");
 
-    const doc = new jsPDF({ unit: "pt", format: "a4" });
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
-    const margin = 42;
-    const contentWidth = pageWidth - margin * 2;
-    const lineHeight = 15;
-    let cursorY = 66;
+    try {
+      const { jsPDF } = await import("jspdf");
+
+      const doc = new jsPDF({ unit: "pt", format: "a4" });
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const margin = 42;
+      const contentWidth = pageWidth - margin * 2;
+      const lineHeight = 15;
+      let cursorY = 66;
 
     const drawPageHeader = () => {
       doc.setFillColor(241, 245, 249);
@@ -871,7 +876,12 @@ export default function App() {
       doc.text(`Page ${pageNumber} of ${totalPages}`, pageWidth - margin, pageHeight - 16, { align: "right" });
     }
 
-    doc.save(toPdfFileName(selectedRecipe.title));
+      doc.save(toPdfFileName(selectedRecipe.title));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to export PDF");
+    } finally {
+      setPdfExporting(false);
+    }
   }
 
   return (
@@ -1223,9 +1233,10 @@ export default function App() {
                         <button
                           type="button"
                           onClick={handleExportRecipePdf}
-                          className="rounded-md border border-slate-300 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100"
+                          disabled={pdfExporting}
+                          className="rounded-md border border-slate-300 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
                         >
-                          Export PDF
+                          {pdfExporting ? "Exporting..." : "Export PDF"}
                         </button>
                         {canEditSelectedRecipe ? (
                           <button
