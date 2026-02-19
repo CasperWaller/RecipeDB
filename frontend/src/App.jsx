@@ -8,8 +8,9 @@ const CREATE_DRAFT_STORAGE_KEY = "recipe_create_draft_v1";
 const DEVICE_ID_STORAGE_KEY = "recipe_device_id_v1";
 const SUCCESS_MESSAGE_TIMEOUT_MS = 3000;
 
+
 // --- Audit Log State ---
-const AUDIT_LOG_PAGE_SIZE = 50;
+// (Moved AUDIT_LOG_PAGE_SIZE inside App to avoid top-level hoisting issues)
 
 
 function getClientDeviceId() {
@@ -187,6 +188,8 @@ async function getApiErrorMessage(response, fallback) {
 }
 
 export default function App() {
+  // --- Constants (move inside component to avoid hoisting issues) ---
+  const AUDIT_LOG_PAGE_SIZE = 50;
   const [createDraftSeed] = useState(() => getInitialCreateDraft());
   const SORT_STORAGE_KEY = "recipe_sort_by";
   const allowedSortModes = new Set(["newest", "prep", "title", "favorites"]);
