@@ -654,11 +654,6 @@ export default function App() {
     writeTextLine(selectedRecipe.description || "No description", { color: [51, 65, 85] });
     cursorY += 6;
 
-    writeSectionTitle("Timing");
-    writeTextLine(`Prep: ${selectedRecipe.prep_time ?? "-"} min`, { color: [51, 65, 85] });
-    writeTextLine(`Cook: ${selectedRecipe.cook_time ?? "-"} min`, { color: [51, 65, 85] });
-    cursorY += 6;
-
     writeSectionTitle("Ingredients");
     const ingredients = selectedRecipe.ingredients || [];
     if (ingredients.length === 0) {
@@ -672,49 +667,6 @@ export default function App() {
       });
     }
     cursorY += 6;
-
-    writeSectionTitle("Tags");
-    const tags = selectedRecipe.tags || [];
-    if (!tags.length) {
-      writeTextLine("No tags", { color: [100, 116, 139] });
-    } else {
-      let pillX = margin;
-      let pillY = cursorY;
-      tags.forEach((item) => {
-        const label = `#${item.name}`;
-        doc.setFont("helvetica", "normal");
-        doc.setFontSize(10);
-        const textWidth = doc.getTextWidth(label);
-        const pillWidth = textWidth + 18;
-        if (pillX + pillWidth > pageWidth - margin) {
-          pillX = margin;
-          pillY += 22;
-        }
-        ensureSpace(pillY - cursorY + 20);
-        doc.setFillColor(241, 245, 249);
-        doc.roundedRect(pillX, pillY - 10, pillWidth, 18, 7, 7, "F");
-        doc.setTextColor(71, 85, 105);
-        doc.text(label, pillX + 9, pillY + 2);
-        pillX += pillWidth + 8;
-      });
-      cursorY = pillY + 20;
-    }
-    cursorY += 6;
-
-    writeSectionTitle("Comments");
-    const comments = selectedRecipe.comments || [];
-    if (comments.length === 0) {
-      writeTextLine("No comments", { color: [100, 116, 139] });
-    } else {
-      comments.forEach((comment, index) => {
-        const author = comment.created_by_username || "Unknown user";
-        const timestamp = comment.created_at ? new Date(comment.created_at).toLocaleString() : "";
-        const commentHeader = timestamp ? `${index + 1}. ${author} • ${timestamp}` : `${index + 1}. ${author}`;
-        writeTextLine(commentHeader, { font: "bold", size: 10, color: [30, 41, 59], gap: 14 });
-        writeTextLine(comment.content, { color: [51, 65, 85] });
-        cursorY += 4;
-      });
-    }
 
     const totalPages = doc.getNumberOfPages();
     for (let pageNumber = 1; pageNumber <= totalPages; pageNumber += 1) {
