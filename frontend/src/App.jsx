@@ -4,7 +4,32 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
 const VALID_QUANTITY_UNITS = ["ml", "cl", "dl", "l", "mg", "g", "kg", "st"];
 const QUANTITY_PATTERN = /^\d+(?:[.,]\d+)?\s*(ml|cl|dl|l|mg|g|kg|st)$/i;
 const CREATE_DRAFT_STORAGE_KEY = "recipe_create_draft_v1";
+const DEVICE_ID_STORAGE_KEY = "recipe_device_id_v1";
 const SUCCESS_MESSAGE_TIMEOUT_MS = 3000;
+
+function getClientDeviceId() {
+  try {
+    const stored = localStorage.getItem(DEVICE_ID_STORAGE_KEY);
+    if (stored && stored.trim()) {
+      return stored;
+    }
+  } catch {
+    // no-op
+  }
+
+  const generated =
+    typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+      ? crypto.randomUUID()
+      : `device-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+
+  try {
+    localStorage.setItem(DEVICE_ID_STORAGE_KEY, generated);
+  } catch {
+    // no-op
+  }
+
+  return generated;
+}
 
 function toTitleCase(value) {
   return String(value || "")
@@ -167,6 +192,7 @@ export default function App() {
   const [successMessage, setSuccessMessage] = useState("");
   const [backendStatus, setBackendStatus] = useState("checking");
   const [onlineDevices, setOnlineDevices] = useState(0);
+  const [deviceId] = useState(() => getClientDeviceId());
 
   const [title, setTitle] = useState(createDraftSeed.title);
   const [description, setDescription] = useState(createDraftSeed.description);
@@ -394,14 +420,14 @@ export default function App() {
     let disposed = false;
 
     async function refreshPresence() {
-      if (!token) {
-        await loadOnlineDevices();
-        return;
-      }
       try {
         const response = await fetch(`${API_BASE}/presence/heartbeat`, {
           method: "POST",
-          headers: { Authorization: `Bearer ${token}` },
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({ device_id: deviceId }),
         });
         if (!response.ok) {
           await loadOnlineDevices();
@@ -423,7 +449,7 @@ export default function App() {
       disposed = true;
       clearInterval(intervalId);
     };
-  }, [token]);
+  }, [token, deviceId]);
 
   function getAuthHeaders() {
     return token ? { Authorization: `Bearer ${token}` } : {};

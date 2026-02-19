@@ -4,7 +4,19 @@ from datetime import datetime, timedelta
 import re
 import secrets
 import hashlib
-from .models import Recipe, Ingredient, Tag, RecipeComment, User, AuthToken, RecipeAuthor, CommentAuthor, RecipeIngredient, RecipeFavorite
+from .models import (
+    Recipe,
+    Ingredient,
+    Tag,
+    RecipeComment,
+    User,
+    AuthToken,
+    RecipeAuthor,
+    CommentAuthor,
+    RecipeIngredient,
+    RecipeFavorite,
+    OnlineDevicePresence,
+)
 from .schemas import RecipeCreate, IngredientCreate, TagCreate, CommentCreate
 
 
@@ -68,8 +80,26 @@ def login_user(db: Session, username: str, password: str):
 def get_online_device_count(db: Session, window_seconds: int = 300):
     safe_window = max(30, int(window_seconds or 300))
     threshold = datetime.utcnow() - timedelta(seconds=safe_window)
-    count = db.query(func.count(func.distinct(AuthToken.user_id))).filter(AuthToken.last_seen_at >= threshold).scalar() or 0
+    count = db.query(func.count(func.distinct(OnlineDevicePresence.device_id))).filter(
+        OnlineDevicePresence.last_seen_at >= threshold
+    ).scalar() or 0
     return int(count)
+
+
+def touch_online_device(db: Session, device_id: str, user_id: int | None = None):
+    normalized_device_id = (device_id or "").strip()
+    if not normalized_device_id:
+        return
+
+    row = db.query(OnlineDevicePresence).filter(OnlineDevicePresence.device_id == normalized_device_id).first()
+    now = datetime.utcnow()
+    if row is None:
+        db.add(OnlineDevicePresence(device_id=normalized_device_id, user_id=user_id, last_seen_at=now))
+    else:
+        row.last_seen_at = now
+        if user_id is not None:
+            row.user_id = user_id
+    db.commit()
 
 def get_recipes(db: Session):
     recipes = db.query(Recipe).options(

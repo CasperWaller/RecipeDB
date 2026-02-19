@@ -102,3 +102,7 @@ class RecipeFavoriteList(BaseModel):
 
 class OnlineDevicesResponse(BaseModel):
     online_devices: int = 0
+
+
+class PresenceHeartbeatRequest(BaseModel):
+    device_id: str

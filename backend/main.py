@@ -23,6 +23,17 @@ def ensure_recipe_favorites_table():
 ensure_recipe_favorites_table()
 
 
+def ensure_online_device_presence_table():
+    inspector = inspect(engine)
+    table_names = set(inspector.get_table_names())
+    if "online_device_presence" in table_names:
+        return
+    models.OnlineDevicePresence.__table__.create(bind=engine, checkfirst=True)
+
+
+ensure_online_device_presence_table()
+
+
 def ensure_auth_tokens_last_seen_column():
     inspector = inspect(engine)
     table_names = set(inspector.get_table_names())
@@ -147,10 +158,19 @@ def read_online_devices(db: Session = Depends(get_db)):
 
 @app.post("/presence/heartbeat", response_model=schemas.OnlineDevicesResponse)
 def presence_heartbeat(
+    payload: schemas.PresenceHeartbeatRequest,
+    authorization: str | None = Header(default=None),
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user),
 ):
-    _ = current_user
+    user_id: int | None = None
+    if authorization and authorization.startswith("Bearer "):
+        token = authorization.removeprefix("Bearer ").strip()
+        if token:
+            user = crud.get_user_by_token(db, token, touch=True)
+            if user is not None:
+                user_id = user.id
+
+    crud.touch_online_device(db, payload.device_id, user_id=user_id)
     return {"online_devices": crud.get_online_device_count(db, ONLINE_DEVICE_WINDOW_SECONDS)}
 
 

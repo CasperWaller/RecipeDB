@@ -41,6 +41,13 @@ class RecipeFavorite(Base):
     user_id = Column(Integer, ForeignKey("users.id"), primary_key=True, index=True)
     created_at = Column(TIMESTAMP, server_default=func.now())
 
+
+class OnlineDevicePresence(Base):
+    __tablename__ = "online_device_presence"
+    device_id = Column(Text, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    last_seen_at = Column(TIMESTAMP, nullable=False, server_default=func.now())
+
 class Recipe(Base):
     __tablename__ = "recipes"
     id = Column(Integer, primary_key=True, index=True)
