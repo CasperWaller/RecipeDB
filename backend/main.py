@@ -34,6 +34,21 @@ def ensure_online_device_presence_table():
 ensure_online_device_presence_table()
 
 
+def ensure_online_device_presence_user_agent_column():
+    inspector = inspect(engine)
+    table_names = set(inspector.get_table_names())
+    if "online_device_presence" not in table_names:
+        return
+    columns = {column["name"] for column in inspector.get_columns("online_device_presence")}
+    if "user_agent" in columns:
+        return
+    with engine.begin() as connection:
+        connection.execute(text("ALTER TABLE online_device_presence ADD COLUMN user_agent TEXT"))
+
+
+ensure_online_device_presence_user_agent_column()
+
+
 def ensure_auth_tokens_last_seen_column():
     inspector = inspect(engine)
     table_names = set(inspector.get_table_names())
@@ -160,6 +175,7 @@ def read_online_devices(db: Session = Depends(get_db)):
 def presence_heartbeat(
     payload: schemas.PresenceHeartbeatRequest,
     authorization: str | None = Header(default=None),
+    user_agent: str | None = Header(default=None),
     db: Session = Depends(get_db),
 ):
     user_id: int | None = None
@@ -170,7 +186,7 @@ def presence_heartbeat(
             if user is not None:
                 user_id = user.id
 
-    crud.touch_online_device(db, payload.device_id, user_id=user_id)
+    crud.touch_online_device(db, payload.device_id, user_id=user_id, user_agent=user_agent)
     return {"online_devices": crud.get_online_device_count(db, ONLINE_DEVICE_WINDOW_SECONDS)}
 
 

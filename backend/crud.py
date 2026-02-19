@@ -80,25 +80,51 @@ def login_user(db: Session, username: str, password: str):
 def get_online_device_count(db: Session, window_seconds: int = 300):
     safe_window = max(30, int(window_seconds or 300))
     threshold = datetime.utcnow() - timedelta(seconds=safe_window)
-    count = db.query(func.count(func.distinct(OnlineDevicePresence.device_id))).filter(
+    rows = db.query(
+        OnlineDevicePresence.device_id,
+        OnlineDevicePresence.user_id,
+        OnlineDevicePresence.user_agent,
+    ).filter(
         OnlineDevicePresence.last_seen_at >= threshold
-    ).scalar() or 0
-    return int(count)
+    ).all()
+
+    unique_keys = set()
+    for device_id, user_id, user_agent in rows:
+        normalized_agent = (user_agent or "").strip().lower()
+        if user_id is not None and normalized_agent:
+            unique_keys.add(f"user:{int(user_id)}:agent:{normalized_agent}")
+            continue
+        if user_id is not None:
+            unique_keys.add(f"user:{int(user_id)}:device:{device_id}")
+            continue
+        unique_keys.add(f"anon:{device_id}")
+
+    return len(unique_keys)
 
 
-def touch_online_device(db: Session, device_id: str, user_id: int | None = None):
+def touch_online_device(db: Session, device_id: str, user_id: int | None = None, user_agent: str | None = None):
     normalized_device_id = (device_id or "").strip()
     if not normalized_device_id:
         return
 
     row = db.query(OnlineDevicePresence).filter(OnlineDevicePresence.device_id == normalized_device_id).first()
     now = datetime.utcnow()
+    normalized_user_agent = (user_agent or "").strip() or None
     if row is None:
-        db.add(OnlineDevicePresence(device_id=normalized_device_id, user_id=user_id, last_seen_at=now))
+        db.add(
+            OnlineDevicePresence(
+                device_id=normalized_device_id,
+                user_id=user_id,
+                user_agent=normalized_user_agent,
+                last_seen_at=now,
+            )
+        )
     else:
         row.last_seen_at = now
         if user_id is not None:
             row.user_id = user_id
+        if normalized_user_agent is not None:
+            row.user_agent = normalized_user_agent
     db.commit()
 
 

@@ -46,6 +46,7 @@ class OnlineDevicePresence(Base):
     __tablename__ = "online_device_presence"
     device_id = Column(Text, primary_key=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    user_agent = Column(Text, nullable=True)
     last_seen_at = Column(TIMESTAMP, nullable=False, server_default=func.now())
 
 class Recipe(Base):
