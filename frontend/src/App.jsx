@@ -550,13 +550,11 @@ export default function App() {
     let cursorY = 66;
 
     const drawPageHeader = () => {
-      doc.setFillColor(15, 23, 42);
+      doc.setFillColor(241, 245, 249);
       doc.rect(0, 0, pageWidth, 36, "F");
-      doc.setFillColor(59, 130, 246);
-      doc.rect(0, 36, pageWidth, 4, "F");
       doc.setFont("helvetica", "bold");
       doc.setFontSize(10);
-      doc.setTextColor(248, 250, 252);
+      doc.setTextColor(51, 65, 85);
       doc.text("Recipe Export", margin, 23);
     };
 
@@ -599,8 +597,6 @@ export default function App() {
       doc.setFont("helvetica", "bold");
       doc.setFontSize(12);
       doc.setTextColor(30, 41, 59);
-      doc.setFillColor(59, 130, 246);
-      doc.roundedRect(margin, cursorY - 10, 4, 14, 1, 1, "F");
       doc.text(title.toUpperCase(), margin, cursorY);
       cursorY += 8;
       doc.setDrawColor(203, 213, 225);
@@ -670,7 +666,7 @@ export default function App() {
     } else {
       ingredients.forEach((item) => {
         ensureSpace(14);
-        doc.setFillColor(59, 130, 246);
+        doc.setFillColor(100, 116, 139);
         doc.circle(margin + 4, cursorY - 4, 2, "F");
         writeTextLine(toTitleCase(item.name), { x: margin + 12, maxWidth: contentWidth - 12, color: [51, 65, 85] });
       });
@@ -695,9 +691,9 @@ export default function App() {
           pillY += 22;
         }
         ensureSpace(pillY - cursorY + 20);
-        doc.setFillColor(239, 246, 255);
+        doc.setFillColor(241, 245, 249);
         doc.roundedRect(pillX, pillY - 10, pillWidth, 18, 7, 7, "F");
-        doc.setTextColor(30, 64, 175);
+        doc.setTextColor(71, 85, 105);
         doc.text(label, pillX + 9, pillY + 2);
         pillX += pillWidth + 8;
       });
