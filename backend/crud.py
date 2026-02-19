@@ -453,7 +453,24 @@ def search_recipes(db: Session, query: str, scope: str = "all"):
 # Ingredients
 
 def get_ingredients(db: Session):
-    return db.query(Ingredient).all()
+    ingredients = db.query(Ingredient).order_by(func.lower(Ingredient.name)).all()
+    ingredient_ids = [item.id for item in ingredients]
+    if not ingredient_ids:
+        return ingredients
+
+    rows = db.query(
+        RecipeIngredient.ingredient_id,
+        func.count(RecipeIngredient.recipe_id),
+    ).filter(
+        RecipeIngredient.ingredient_id.in_(ingredient_ids)
+    ).group_by(
+        RecipeIngredient.ingredient_id
+    ).all()
+
+    recipe_counts = {ingredient_id: int(count) for ingredient_id, count in rows}
+    for ingredient in ingredients:
+        ingredient.recipe_count = recipe_counts.get(ingredient.id, 0)
+    return ingredients
 
 def create_ingredient(db: Session, ingredient: IngredientCreate):
     normalized_name = (ingredient.name or "").strip().lower()
@@ -468,6 +485,49 @@ def create_ingredient(db: Session, ingredient: IngredientCreate):
     db.add(db_ingredient)
     db.commit()
     db.refresh(db_ingredient)
+    db_ingredient.recipe_count = 0
+    return db_ingredient
+
+
+def update_ingredient(db: Session, ingredient_id: int, name: str):
+    db_ingredient = db.query(Ingredient).filter(Ingredient.id == ingredient_id).first()
+    if db_ingredient is None:
+        return None
+
+    normalized_name = (name or "").strip().lower()
+    if not normalized_name:
+        raise ValueError("Ingredient name is required")
+
+    duplicate = db.query(Ingredient).filter(
+        func.lower(Ingredient.name) == normalized_name,
+        Ingredient.id != ingredient_id,
+    ).first()
+    if duplicate is not None:
+        raise ValueError("Ingredient already exists")
+
+    db_ingredient.name = normalized_name
+    db.commit()
+    db.refresh(db_ingredient)
+
+    recipe_count = db.query(func.count(RecipeIngredient.recipe_id)).filter(
+        RecipeIngredient.ingredient_id == ingredient_id
+    ).scalar() or 0
+    db_ingredient.recipe_count = int(recipe_count)
+    return db_ingredient
+
+
+def delete_ingredient(db: Session, ingredient_id: int):
+    db_ingredient = db.query(Ingredient).filter(Ingredient.id == ingredient_id).first()
+    if db_ingredient is None:
+        return None
+
+    in_use = db.query(RecipeIngredient.recipe_id).filter(RecipeIngredient.ingredient_id == ingredient_id).first()
+    if in_use is not None:
+        raise ValueError("Cannot delete ingredient that is used by recipes")
+
+    db.delete(db_ingredient)
+    db.commit()
+    db_ingredient.recipe_count = 0
     return db_ingredient
 
 # Tags

@@ -436,6 +436,39 @@ def create_ingredient(
 def read_ingredients(db: Session = Depends(get_db)):
     return crud.get_ingredients(db)
 
+
+@app.put("/ingredients/{ingredient_id}", response_model=schemas.Ingredient)
+def update_ingredient(
+    ingredient_id: int,
+    payload: schemas.IngredientUpdate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(require_admin),
+):
+    _ = current_user
+    try:
+        updated = crud.update_ingredient(db, ingredient_id=ingredient_id, name=payload.name)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if updated is None:
+        raise HTTPException(status_code=404, detail="Ingredient not found")
+    return updated
+
+
+@app.delete("/ingredients/{ingredient_id}", response_model=schemas.Ingredient)
+def remove_ingredient(
+    ingredient_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(require_admin),
+):
+    _ = current_user
+    try:
+        deleted = crud.delete_ingredient(db, ingredient_id=ingredient_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if deleted is None:
+        raise HTTPException(status_code=404, detail="Ingredient not found")
+    return deleted
+
 # Tags
 @app.post("/tags/", response_model=schemas.Tag)
 def create_tag(

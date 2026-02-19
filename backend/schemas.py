@@ -33,7 +33,12 @@ class IngredientCreate(IngredientBase):
 
 class Ingredient(IngredientBase):
     id: int
+    recipe_count: int = 0
     model_config = ConfigDict(from_attributes=True)
+
+
+class IngredientUpdate(IngredientBase):
+    pass
 
 # Tag schemas
 class TagBase(BaseModel):
