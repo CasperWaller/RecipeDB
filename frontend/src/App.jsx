@@ -644,6 +644,24 @@ export default function App() {
       return;
     }
 
+    const isSelfDemotingFromSuperAdmin =
+      Boolean(currentUser && user.id === currentUser.id && currentRole === "super_admin" && selectedRole !== "super_admin");
+    if (isSelfDemotingFromSuperAdmin) {
+      const otherSuperAdminExists = managedUsers.some(
+        (item) => item.id !== user.id && (item.is_super_admin || roleSelections[item.id] === "super_admin")
+      );
+      if (!otherSuperAdminExists) {
+        setError("You cannot demote yourself because no other super admin exists");
+        return;
+      }
+      const confirmed = window.confirm(
+        "Demote your own super admin role? You may lose access to role management immediately."
+      );
+      if (!confirmed) {
+        return;
+      }
+    }
+
     setRoleSavingUserId(user.id);
     setError("");
     setSuccessMessage("");
@@ -1604,6 +1622,12 @@ export default function App() {
                 {managedUsers.map((user) => {
                   const selectedRole = roleSelections[user.id] || getRoleFromUser(user);
                   const unchanged = selectedRole === getRoleFromUser(user);
+                  const selfDemotion =
+                    Boolean(currentUser && user.id === currentUser.id && getRoleFromUser(user) === "super_admin" && selectedRole !== "super_admin");
+                  const hasOtherSuperAdmin = managedUsers.some(
+                    (item) => item.id !== user.id && (item.is_super_admin || roleSelections[item.id] === "super_admin")
+                  );
+                  const blockSelfDemotion = selfDemotion && !hasOtherSuperAdmin;
                   return (
                     <li key={user.id} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
                       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -1626,13 +1650,16 @@ export default function App() {
                           <button
                             type="button"
                             onClick={() => handleSaveUserRole(user)}
-                            disabled={roleSavingUserId === user.id || unchanged}
+                            disabled={roleSavingUserId === user.id || unchanged || blockSelfDemotion}
                             className="rounded-lg border border-slate-300 px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
                           >
                             {roleSavingUserId === user.id ? "Saving..." : "Save"}
                           </button>
                         </div>
                       </div>
+                      {blockSelfDemotion ? (
+                        <p className="mt-2 text-xs text-rose-600">Add another super admin before demoting yourself.</p>
+                      ) : null}
                     </li>
                   );
                 })}
