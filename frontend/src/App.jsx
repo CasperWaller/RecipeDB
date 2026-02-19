@@ -3,6 +3,8 @@ import { useEffect, useMemo, useState } from "react";
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
 const VALID_QUANTITY_UNITS = ["ml", "cl", "dl", "l", "mg", "g", "kg", "st"];
 const QUANTITY_PATTERN = /^\d+(?:[.,]\d+)?\s*(ml|cl|dl|l|mg|g|kg|st)$/i;
+const CREATE_DRAFT_STORAGE_KEY = "recipe_create_draft_v1";
+const SUCCESS_MESSAGE_TIMEOUT_MS = 3000;
 
 function toTitleCase(value) {
   return String(value || "")
@@ -19,6 +21,41 @@ function parseList(value) {
 
 function createEmptyIngredientRow() {
   return { name: "", quantity: "" };
+}
+
+function getInitialCreateDraft() {
+  const fallback = {
+    title: "",
+    description: "",
+    prepTime: "",
+    cookTime: "",
+    ingredientRows: [createEmptyIngredientRow()],
+    tagsText: "",
+  };
+
+  try {
+    const raw = localStorage.getItem(CREATE_DRAFT_STORAGE_KEY);
+    if (!raw) {
+      return fallback;
+    }
+    const parsed = JSON.parse(raw);
+    const rows = Array.isArray(parsed?.ingredientRows)
+      ? parsed.ingredientRows.map((row) => ({
+          name: String(row?.name || ""),
+          quantity: String(row?.quantity || ""),
+        }))
+      : [];
+    return {
+      title: String(parsed?.title || ""),
+      description: String(parsed?.description || ""),
+      prepTime: String(parsed?.prepTime || ""),
+      cookTime: String(parsed?.cookTime || ""),
+      ingredientRows: rows.length > 0 ? rows : [createEmptyIngredientRow()],
+      tagsText: String(parsed?.tagsText || ""),
+    };
+  } catch {
+    return fallback;
+  }
 }
 
 function normalizeIngredientEntries(entries) {
@@ -120,20 +157,22 @@ async function getApiErrorMessage(response, fallback) {
 }
 
 export default function App() {
+  const [createDraftSeed] = useState(() => getInitialCreateDraft());
   const SORT_STORAGE_KEY = "recipe_sort_by";
   const allowedSortModes = new Set(["newest", "prep", "title"]);
   const [recipes, setRecipes] = useState([]);
   const [selectedRecipeId, setSelectedRecipeId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
   const [backendStatus, setBackendStatus] = useState("checking");
 
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [prepTime, setPrepTime] = useState("");
-  const [cookTime, setCookTime] = useState("");
-  const [ingredientRows, setIngredientRows] = useState([createEmptyIngredientRow()]);
-  const [tagsText, setTagsText] = useState("");
+  const [title, setTitle] = useState(createDraftSeed.title);
+  const [description, setDescription] = useState(createDraftSeed.description);
+  const [prepTime, setPrepTime] = useState(createDraftSeed.prepTime);
+  const [cookTime, setCookTime] = useState(createDraftSeed.cookTime);
+  const [ingredientRows, setIngredientRows] = useState(createDraftSeed.ingredientRows);
+  const [tagsText, setTagsText] = useState(createDraftSeed.tagsText);
   const [editMode, setEditMode] = useState(false);
   const [editTitle, setEditTitle] = useState("");
   const [editDescription, setEditDescription] = useState("");
@@ -273,6 +312,44 @@ export default function App() {
     localStorage.setItem(SORT_STORAGE_KEY, sortBy);
   }, [sortBy, SORT_STORAGE_KEY]);
 
+  useEffect(() => {
+    if (!successMessage) {
+      return;
+    }
+    const timeoutId = setTimeout(() => setSuccessMessage(""), SUCCESS_MESSAGE_TIMEOUT_MS);
+    return () => clearTimeout(timeoutId);
+  }, [successMessage]);
+
+  useEffect(() => {
+    const hasNonEmptyIngredient = ingredientRows.some(
+      (row) => String(row?.name || "").trim() || String(row?.quantity || "").trim()
+    );
+    const hasDraft =
+      title.trim() ||
+      description.trim() ||
+      prepTime.trim() ||
+      cookTime.trim() ||
+      tagsText.trim() ||
+      hasNonEmptyIngredient;
+
+    if (!hasDraft) {
+      localStorage.removeItem(CREATE_DRAFT_STORAGE_KEY);
+      return;
+    }
+
+    localStorage.setItem(
+      CREATE_DRAFT_STORAGE_KEY,
+      JSON.stringify({
+        title,
+        description,
+        prepTime,
+        cookTime,
+        ingredientRows,
+        tagsText,
+      })
+    );
+  }, [title, description, prepTime, cookTime, ingredientRows, tagsText]);
+
   function getAuthHeaders() {
     return token ? { Authorization: `Bearer ${token}` } : {};
   }
@@ -327,6 +404,7 @@ export default function App() {
   async function handleSubmit(event) {
     event.preventDefault();
     setError("");
+    setSuccessMessage("");
     setCreateValidationErrors({});
 
     if (!token) {
@@ -375,7 +453,9 @@ export default function App() {
       setCookTime("");
       setIngredientRows([createEmptyIngredientRow()]);
       setTagsText("");
+      localStorage.removeItem(CREATE_DRAFT_STORAGE_KEY);
       setCreateValidationErrors({});
+      setSuccessMessage("Recipe created successfully");
       await loadRecipes();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create recipe");
@@ -392,6 +472,7 @@ export default function App() {
 
     setCommentSaving(true);
     setError("");
+    setSuccessMessage("");
 
     if (!token) {
       setError("Please log in to add comments");
@@ -411,6 +492,7 @@ export default function App() {
       }
 
       setCommentText("");
+      setSuccessMessage("Comment posted");
       await loadRecipes();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to add comment");
@@ -426,6 +508,7 @@ export default function App() {
 
     setCommentDeletingId(commentId);
     setError("");
+    setSuccessMessage("");
 
     if (!token) {
       setError("Please log in to remove comments");
@@ -443,6 +526,7 @@ export default function App() {
         throw new Error(await getApiErrorMessage(response, "Failed to delete comment"));
       }
 
+      setSuccessMessage("Comment removed");
       await loadRecipes();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to delete comment");
@@ -468,6 +552,7 @@ export default function App() {
 
     setRecipeDeleting(true);
     setError("");
+    setSuccessMessage("");
 
     try {
       const response = await fetch(`${API_BASE}/recipes/${selectedRecipeId}`, {
@@ -479,6 +564,7 @@ export default function App() {
         throw new Error(await getApiErrorMessage(response, "Failed to delete recipe"));
       }
 
+      setSuccessMessage("Recipe removed");
       await loadRecipes();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to delete recipe");
@@ -556,6 +642,7 @@ export default function App() {
 
     setEditSaving(true);
     setError("");
+    setSuccessMessage("");
     try {
       const response = await fetch(`${API_BASE}/recipes/${selectedRecipeId}`, {
         method: "PUT",
@@ -569,6 +656,7 @@ export default function App() {
 
       await loadRecipes();
       setEditMode(false);
+      setSuccessMessage("Recipe updated successfully");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update recipe");
     } finally {
@@ -590,6 +678,7 @@ export default function App() {
 
     setAuthSaving(true);
     setError("");
+    setSuccessMessage("");
     try {
       if (authMode === "register") {
         const registerResponse = await fetch(`${API_BASE}/auth/register`, {
@@ -617,6 +706,7 @@ export default function App() {
       setToken(data.token);
       setCurrentUser(data.user);
       setAuthPassword("");
+      setSuccessMessage(authMode === "register" ? "Registration complete. You are now logged in." : "Logged in successfully");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Authentication failed");
     } finally {
@@ -628,6 +718,7 @@ export default function App() {
     localStorage.removeItem("auth_token");
     setToken("");
     setCurrentUser(null);
+    setSuccessMessage("Logged out successfully");
   }
 
   async function handleExportRecipePdf() {
@@ -1097,6 +1188,10 @@ export default function App() {
 
             {error ? (
               <div className="mb-4 rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{error}</div>
+            ) : null}
+
+            {successMessage ? (
+              <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">{successMessage}</div>
             ) : null}
 
             {loading ? (
