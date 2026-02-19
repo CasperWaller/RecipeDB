@@ -938,6 +938,18 @@ export default function App() {
                           updateIngredientRow(setIngredientRows, index, "quantity", event.target.value);
                           setCreateValidationErrors((previous) => ({ ...previous, ingredients: "" }));
                         }}
+                        onKeyDown={(event) => {
+                          if (event.key !== "Enter") {
+                            return;
+                          }
+                          event.preventDefault();
+                          const isLastRow = index === ingredientRows.length - 1;
+                          if (isLastRow) {
+                            addIngredientRow(setIngredientRows, setCreateIngredientFocusIndex);
+                            return;
+                          }
+                          setCreateIngredientFocusIndex(index + 1);
+                        }}
                         placeholder="Quantity (e.g. 2 dl)"
                         className="col-span-5 rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-0 focus:border-slate-400"
                       />
@@ -1255,6 +1267,18 @@ export default function App() {
                                   onChange={(event) => {
                                     updateIngredientRow(setEditIngredientRows, index, "quantity", event.target.value);
                                     setEditValidationErrors((previous) => ({ ...previous, ingredients: "" }));
+                                  }}
+                                  onKeyDown={(event) => {
+                                    if (event.key !== "Enter") {
+                                      return;
+                                    }
+                                    event.preventDefault();
+                                    const isLastRow = index === editIngredientRows.length - 1;
+                                    if (isLastRow) {
+                                      addIngredientRow(setEditIngredientRows, setEditIngredientFocusIndex);
+                                      return;
+                                    }
+                                    setEditIngredientFocusIndex(index + 1);
                                   }}
                                   placeholder="Quantity (e.g. 2 dl)"
                                   className="col-span-5 rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-0 focus:border-slate-400"
