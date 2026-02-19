@@ -38,6 +38,33 @@ def ensure_at_least_one_admin():
 
 ensure_at_least_one_admin()
 
+
+def ensure_recipe_author_links():
+    with engine.begin() as connection:
+        fallback_user_id = connection.execute(
+            text("SELECT id FROM users WHERE is_admin = TRUE ORDER BY id ASC LIMIT 1")
+        ).scalar()
+        if fallback_user_id is None:
+            fallback_user_id = connection.execute(text("SELECT id FROM users ORDER BY id ASC LIMIT 1")).scalar()
+        if fallback_user_id is None:
+            return
+
+        connection.execute(
+            text(
+                """
+                INSERT INTO recipe_authors (recipe_id, user_id)
+                SELECT r.id, :user_id
+                FROM recipes r
+                LEFT JOIN recipe_authors ra ON ra.recipe_id = r.id
+                WHERE ra.recipe_id IS NULL
+                """
+            ),
+            {"user_id": int(fallback_user_id)},
+        )
+
+
+ensure_recipe_author_links()
+
 app = FastAPI(title="Recipe API")
 
 default_origins = [
