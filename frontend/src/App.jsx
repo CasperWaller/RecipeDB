@@ -9,7 +9,7 @@ const SUCCESS_MESSAGE_TIMEOUT_MS = 3000;
 function toTitleCase(value) {
   return String(value || "")
     .toLowerCase()
-    .replace(/\b\w/g, (char) => char.toUpperCase());
+    .replace(/(^|[\s\-_/()\[\]{}.,;:!?"'])\p{L}/gu, (match) => match.toUpperCase());
 }
 
 function parseList(value) {
