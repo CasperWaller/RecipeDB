@@ -159,7 +159,7 @@ async function getApiErrorMessage(response, fallback) {
 export default function App() {
   const [createDraftSeed] = useState(() => getInitialCreateDraft());
   const SORT_STORAGE_KEY = "recipe_sort_by";
-  const allowedSortModes = new Set(["newest", "prep", "title"]);
+  const allowedSortModes = new Set(["newest", "prep", "title", "favorites"]);
   const [recipes, setRecipes] = useState([]);
   const [selectedRecipeId, setSelectedRecipeId] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -190,6 +190,7 @@ export default function App() {
   const [token, setToken] = useState(localStorage.getItem("auth_token") || "");
   const [currentUser, setCurrentUser] = useState(null);
   const [favoriteRecipeIds, setFavoriteRecipeIds] = useState([]);
+  const [favoriteSavingRecipeIds, setFavoriteSavingRecipeIds] = useState([]);
   const [saving, setSaving] = useState(false);
   const [recipeDeleting, setRecipeDeleting] = useState(false);
   const [commentText, setCommentText] = useState("");
@@ -211,9 +212,19 @@ export default function App() {
     selectedRecipe && currentUser && (isAdmin || selectedRecipe.created_by_username === currentUser.username)
   );
   const favoriteRecipeIdSet = useMemo(() => new Set(favoriteRecipeIds), [favoriteRecipeIds]);
+  const favoriteSavingRecipeIdSet = useMemo(() => new Set(favoriteSavingRecipeIds), [favoriteSavingRecipeIds]);
 
   const sortedRecipes = useMemo(() => {
     const items = [...recipes];
+    if (sortBy === "favorites") {
+      return items.sort((a, b) => {
+        const countDifference = Number(b.favorite_count || 0) - Number(a.favorite_count || 0);
+        if (countDifference !== 0) {
+          return countDifference;
+        }
+        return (a.title || "").localeCompare(b.title || "");
+      });
+    }
     if (sortBy === "title") {
       return items.sort((a, b) => (a.title || "").localeCompare(b.title || ""));
     }
@@ -407,10 +418,14 @@ export default function App() {
       setError("Please log in to manage favorites");
       return;
     }
+    if (favoriteSavingRecipeIdSet.has(recipeId)) {
+      return;
+    }
 
     const isCurrentlyFavorite = favoriteRecipeIdSet.has(recipeId);
     setError("");
     setSuccessMessage("");
+    setFavoriteSavingRecipeIds((previous) => (previous.includes(recipeId) ? previous : [...previous, recipeId]));
     try {
       const response = await fetch(`${API_BASE}/recipes/${recipeId}/favorite`, {
         method: isCurrentlyFavorite ? "DELETE" : "POST",
@@ -444,6 +459,8 @@ export default function App() {
       setSuccessMessage(isCurrentlyFavorite ? "Removed from favorites" : "Added to favorites");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update favorite");
+    } finally {
+      setFavoriteSavingRecipeIds((previous) => previous.filter((id) => id !== recipeId));
     }
   }
 
@@ -1329,6 +1346,7 @@ export default function App() {
                 className="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 outline-none focus:border-slate-400"
               >
                 <option value="newest">Newest</option>
+                <option value="favorites">Most Favorited</option>
                 <option value="prep">Prep Time</option>
                 <option value="title">A-Z</option>
               </select>
@@ -1399,9 +1417,14 @@ export default function App() {
                             <button
                               type="button"
                               onClick={() => toggleFavorite(selectedRecipe.id)}
-                              className="rounded-md border border-slate-300 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100"
+                              disabled={favoriteSavingRecipeIdSet.has(selectedRecipe.id)}
+                              className="rounded-md border border-slate-300 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
                             >
-                              {favoriteRecipeIdSet.has(selectedRecipe.id) ? "★ Favorited" : "☆ Favorite"}
+                              {favoriteSavingRecipeIdSet.has(selectedRecipe.id)
+                                ? "Saving..."
+                                : favoriteRecipeIdSet.has(selectedRecipe.id)
+                                ? "★ Favorited"
+                                : "☆ Favorite"}
                             </button>
                           ) : null}
                         </div>
