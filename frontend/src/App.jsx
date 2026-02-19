@@ -54,6 +54,15 @@ function validateRecipeForm({ title, prepTime, cookTime, ingredientsText, tagsTe
   return { errors, ingredientNames, tagNames };
 }
 
+function toPdfFileName(value) {
+  const normalized = String(value || "recipe")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return `${normalized || "recipe"}.pdf`;
+}
+
 async function getApiErrorMessage(response, fallback) {
   try {
     const data = await response.json();
@@ -524,6 +533,97 @@ export default function App() {
     setCurrentUser(null);
   }
 
+  async function handleExportRecipePdf() {
+    if (!selectedRecipe) {
+      setError("Select a recipe to export");
+      return;
+    }
+
+    const { jsPDF } = await import("jspdf");
+
+    const doc = new jsPDF({ unit: "pt", format: "a4" });
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 44;
+    const maxWidth = pageWidth - margin * 2;
+    const lineHeight = 16;
+    let cursorY = margin;
+
+    const ensureSpace = (neededHeight = lineHeight) => {
+      if (cursorY + neededHeight <= pageHeight - margin) {
+        return;
+      }
+      doc.addPage();
+      cursorY = margin;
+    };
+
+    const writeHeading = (text) => {
+      ensureSpace(28);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(22);
+      doc.text(text, margin, cursorY);
+      cursorY += 28;
+    };
+
+    const writeLabel = (text) => {
+      ensureSpace(18);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(12);
+      doc.text(text, margin, cursorY);
+      cursorY += 18;
+    };
+
+    const writeBody = (text) => {
+      const lines = doc.splitTextToSize(String(text || "-"), maxWidth);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(11);
+      lines.forEach((line) => {
+        ensureSpace(lineHeight);
+        doc.text(line, margin, cursorY);
+        cursorY += lineHeight;
+      });
+      cursorY += 6;
+    };
+
+    writeHeading(selectedRecipe.title || "Recipe");
+
+    writeLabel("Created by");
+    writeBody(selectedRecipe.created_by_username || "Unknown user");
+
+    writeLabel("Description");
+    writeBody(selectedRecipe.description || "No description");
+
+    writeLabel("Prep / Cook");
+    writeBody(`${selectedRecipe.prep_time ?? "-"} / ${selectedRecipe.cook_time ?? "-"} min`);
+
+    writeLabel("Ingredients");
+    const ingredientText = (selectedRecipe.ingredients || []).length
+      ? selectedRecipe.ingredients.map((item) => `• ${toTitleCase(item.name)}`).join("\n")
+      : "-";
+    writeBody(ingredientText);
+
+    writeLabel("Tags");
+    const tagsTextValue = (selectedRecipe.tags || []).length
+      ? selectedRecipe.tags.map((item) => `#${item.name}`).join(", ")
+      : "-";
+    writeBody(tagsTextValue);
+
+    writeLabel("Comments");
+    const comments = selectedRecipe.comments || [];
+    if (comments.length === 0) {
+      writeBody("No comments");
+    } else {
+      comments.forEach((comment, index) => {
+        const author = comment.created_by_username || "Unknown user";
+        const timestamp = comment.created_at ? new Date(comment.created_at).toLocaleString() : "";
+        const header = timestamp ? `${index + 1}. ${author} (${timestamp})` : `${index + 1}. ${author}`;
+        writeBody(`${header}\n${comment.content}`);
+      });
+    }
+
+    doc.save(toPdfFileName(selectedRecipe.title));
+  }
+
   return (
     <main className="min-h-screen bg-slate-50">
       <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
@@ -822,6 +922,13 @@ export default function App() {
                         </p>
                       </div>
                       <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={handleExportRecipePdf}
+                          className="rounded-md border border-slate-300 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100"
+                        >
+                          Export PDF
+                        </button>
                         {canEditSelectedRecipe ? (
                           <button
                             type="button"
