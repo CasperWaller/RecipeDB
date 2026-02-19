@@ -143,7 +143,10 @@ def create_recipe(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
-    return crud.create_recipe(db, recipe, user_id=current_user.id)
+    try:
+        return crud.create_recipe(db, recipe, user_id=current_user.id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 @app.get("/recipes/", response_model=list[schemas.Recipe])
 def read_recipes(query: str | None = None, scope: str = "all", db: Session = Depends(get_db)):
@@ -188,7 +191,10 @@ def update_recipe(
     if not current_user.is_admin and not crud.is_recipe_owner(db, recipe_id, current_user.id):
         raise HTTPException(status_code=403, detail="Only the recipe owner can edit this recipe")
 
-    updated = crud.update_recipe(db, recipe_id, recipe)
+    try:
+        updated = crud.update_recipe(db, recipe_id, recipe)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     if updated is None:
         raise HTTPException(status_code=404, detail="Recipe not found")
     return updated

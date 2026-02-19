@@ -54,6 +54,31 @@ function validateRecipeForm({ title, prepTime, cookTime, ingredientsText, tagsTe
   return { errors, ingredientNames, tagNames };
 }
 
+async function getApiErrorMessage(response, fallback) {
+  try {
+    const data = await response.json();
+    if (typeof data?.detail === "string" && data.detail.trim()) {
+      return data.detail;
+    }
+    if (Array.isArray(data?.detail) && data.detail.length > 0) {
+      const first = data.detail[0];
+      if (typeof first === "string") {
+        return first;
+      }
+      if (typeof first?.msg === "string" && first.msg.trim()) {
+        return first.msg;
+      }
+    }
+    if (typeof data?.message === "string" && data.message.trim()) {
+      return data.message;
+    }
+  } catch {
+    // no-op
+  }
+
+  return `${fallback} (${response.status})`;
+}
+
 export default function App() {
   const SORT_STORAGE_KEY = "recipe_sort_by";
   const allowedSortModes = new Set(["newest", "prep", "title"]);
@@ -133,7 +158,7 @@ export default function App() {
       const response = await fetch(url);
       if (!response.ok) {
         setBackendStatus("disconnected");
-        throw new Error(`Failed to load recipes (${response.status})`);
+        throw new Error(await getApiErrorMessage(response, "Failed to load recipes"));
       }
       const data = await response.json();
       setBackendStatus("connected");
@@ -244,7 +269,7 @@ export default function App() {
       });
 
       if (!response.ok) {
-        throw new Error(`Failed to create recipe (${response.status})`);
+        throw new Error(await getApiErrorMessage(response, "Failed to create recipe"));
       }
 
       setTitle("");
@@ -285,7 +310,7 @@ export default function App() {
       });
 
       if (!response.ok) {
-        throw new Error(`Failed to add comment (${response.status})`);
+        throw new Error(await getApiErrorMessage(response, "Failed to add comment"));
       }
 
       setCommentText("");
@@ -318,7 +343,7 @@ export default function App() {
       });
 
       if (!response.ok) {
-        throw new Error(`Failed to delete comment (${response.status})`);
+        throw new Error(await getApiErrorMessage(response, "Failed to delete comment"));
       }
 
       await loadRecipes();
@@ -354,7 +379,7 @@ export default function App() {
       });
 
       if (!response.ok) {
-        throw new Error(`Failed to delete recipe (${response.status})`);
+        throw new Error(await getApiErrorMessage(response, "Failed to delete recipe"));
       }
 
       await loadRecipes();
@@ -433,7 +458,7 @@ export default function App() {
       });
 
       if (!response.ok) {
-        throw new Error(`Failed to update recipe (${response.status})`);
+        throw new Error(await getApiErrorMessage(response, "Failed to update recipe"));
       }
 
       await loadRecipes();
@@ -467,7 +492,7 @@ export default function App() {
           body: JSON.stringify({ username: authUsername.trim(), password: authPassword }),
         });
         if (!registerResponse.ok) {
-          throw new Error(`Registration failed (${registerResponse.status})`);
+          throw new Error(await getApiErrorMessage(registerResponse, "Registration failed"));
         }
       }
 
@@ -478,7 +503,7 @@ export default function App() {
       });
 
       if (!loginResponse.ok) {
-        throw new Error(`Login failed (${loginResponse.status})`);
+        throw new Error(await getApiErrorMessage(loginResponse, "Login failed"));
       }
 
       const data = await loginResponse.json();

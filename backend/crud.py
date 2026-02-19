@@ -83,31 +83,25 @@ def create_recipe(db: Session, recipe: RecipeCreate, user_id: int):
     db.add(db_recipe)
     db.flush()
 
+    ingredient_names = _extract_unique_names(recipe.ingredients or [], "ingredients")
     ingredients = []
-    for item in recipe.ingredients or []:
-        for raw in _split_names(item.name):
-            name = raw.strip().lower()
-            if not name:
-                continue
-            existing = db.query(Ingredient).filter(func.lower(Ingredient.name) == name).first()
-            if not existing:
-                existing = Ingredient(name=name)
-                db.add(existing)
-                db.flush()
-            ingredients.append(existing)
+    for name in ingredient_names:
+        existing = db.query(Ingredient).filter(func.lower(Ingredient.name) == name).first()
+        if not existing:
+            existing = Ingredient(name=name)
+            db.add(existing)
+            db.flush()
+        ingredients.append(existing)
 
+    tag_names = _extract_unique_names(recipe.tags or [], "tags")
     tags = []
-    for item in recipe.tags or []:
-        for raw in _split_names(item.name):
-            name = raw.strip().lower()
-            if not name:
-                continue
-            existing = db.query(Tag).filter(func.lower(Tag.name) == name).first()
-            if not existing:
-                existing = Tag(name=name)
-                db.add(existing)
-                db.flush()
-            tags.append(existing)
+    for name in tag_names:
+        existing = db.query(Tag).filter(func.lower(Tag.name) == name).first()
+        if not existing:
+            existing = Tag(name=name)
+            db.add(existing)
+            db.flush()
+        tags.append(existing)
 
     db_recipe.ingredients = ingredients
     db_recipe.tags = tags
@@ -132,31 +126,25 @@ def update_recipe(db: Session, recipe_id: int, recipe: RecipeCreate):
     for key, value in recipe_data.items():
         setattr(db_recipe, key, value)
 
+    ingredient_names = _extract_unique_names(recipe.ingredients or [], "ingredients")
     ingredients = []
-    for item in recipe.ingredients or []:
-        for raw in _split_names(item.name):
-            name = raw.strip().lower()
-            if not name:
-                continue
-            existing = db.query(Ingredient).filter(func.lower(Ingredient.name) == name).first()
-            if not existing:
-                existing = Ingredient(name=name)
-                db.add(existing)
-                db.flush()
-            ingredients.append(existing)
+    for name in ingredient_names:
+        existing = db.query(Ingredient).filter(func.lower(Ingredient.name) == name).first()
+        if not existing:
+            existing = Ingredient(name=name)
+            db.add(existing)
+            db.flush()
+        ingredients.append(existing)
 
+    tag_names = _extract_unique_names(recipe.tags or [], "tags")
     tags = []
-    for item in recipe.tags or []:
-        for raw in _split_names(item.name):
-            name = raw.strip().lower()
-            if not name:
-                continue
-            existing = db.query(Tag).filter(func.lower(Tag.name) == name).first()
-            if not existing:
-                existing = Tag(name=name)
-                db.add(existing)
-                db.flush()
-            tags.append(existing)
+    for name in tag_names:
+        existing = db.query(Tag).filter(func.lower(Tag.name) == name).first()
+        if not existing:
+            existing = Tag(name=name)
+            db.add(existing)
+            db.flush()
+        tags.append(existing)
 
     db_recipe.ingredients = ingredients
     db_recipe.tags = tags
@@ -192,6 +180,27 @@ def _split_terms(query: str):
 
 def _split_names(value: str):
     return _split_terms(value)
+
+
+def _extract_unique_names(items: list[IngredientCreate | TagCreate], field_label: str):
+    names = []
+    for item in items:
+        for raw in _split_names(item.name):
+            normalized = raw.strip().lower()
+            if normalized:
+                names.append(normalized)
+
+    seen = set()
+    duplicates = []
+    for name in names:
+        if name in seen and name not in duplicates:
+            duplicates.append(name)
+        seen.add(name)
+
+    if duplicates:
+        raise ValueError(f"Duplicate {field_label}: {', '.join(duplicates)}")
+
+    return names
 
 def search_recipes(db: Session, query: str, scope: str = "all"):
     terms = _split_terms(query)
