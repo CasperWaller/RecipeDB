@@ -17,6 +17,7 @@ class UserPublic(BaseModel):
     id: int
     username: str
     is_admin: bool
+    is_super_admin: bool
     model_config = ConfigDict(from_attributes=True)
 
 

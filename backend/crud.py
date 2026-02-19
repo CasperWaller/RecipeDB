@@ -57,8 +57,14 @@ def register_user(db: Session, username: str, password: str):
     normalized = username.strip().lower()
     if get_user_by_username(db, normalized):
         return None
-    has_admin = db.query(User.id).filter(User.is_admin.is_(True)).first() is not None
-    user = User(username=normalized, password_hash=_hash_password(password), is_admin=not has_admin)
+    has_super_admin = db.query(User.id).filter(User.is_super_admin.is_(True)).first() is not None
+    first_privileged = not has_super_admin
+    user = User(
+        username=normalized,
+        password_hash=_hash_password(password),
+        is_admin=first_privileged,
+        is_super_admin=first_privileged,
+    )
     db.add(user)
     db.commit()
     db.refresh(user)

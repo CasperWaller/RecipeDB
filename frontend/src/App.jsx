@@ -243,9 +243,13 @@ export default function App() {
   const [createValidationErrors, setCreateValidationErrors] = useState({});
   const [editValidationErrors, setEditValidationErrors] = useState({});
   const selectedRecipe = recipes.find((recipe) => recipe.id === selectedRecipeId) || null;
-  const isAdmin = Boolean(currentUser?.is_admin);
+  const isSuperAdmin = Boolean(currentUser?.is_super_admin);
+  const isAdmin = Boolean(currentUser?.is_admin || isSuperAdmin);
   const canEditSelectedRecipe = Boolean(
     selectedRecipe && currentUser && (isAdmin || selectedRecipe.created_by_username === currentUser.username)
+  );
+  const canDeleteSelectedRecipe = Boolean(
+    selectedRecipe && currentUser && (isSuperAdmin || selectedRecipe.created_by_username === currentUser.username)
   );
   const favoriteRecipeIdSet = useMemo(() => new Set(favoriteRecipeIds), [favoriteRecipeIds]);
   const favoriteSavingRecipeIdSet = useMemo(() => new Set(favoriteSavingRecipeIds), [favoriteSavingRecipeIds]);
@@ -1060,6 +1064,10 @@ export default function App() {
       setError("Only admin can remove recipes");
       return;
     }
+    if (!canDeleteSelectedRecipe) {
+      setError("Only super admins can remove recipes created by other users");
+      return;
+    }
 
     setRecipeDeleting(true);
     setError("");
@@ -1428,7 +1436,7 @@ export default function App() {
               <p className="text-sm text-slate-700">
                 Logged in as <strong>{currentUser.username}</strong>{" "}
                 <span className={isAdmin ? "text-emerald-700" : "text-slate-500"}>
-                  ({isAdmin ? "Admin" : "User"})
+                  ({isSuperAdmin ? "Super Admin" : isAdmin ? "Admin" : "User"})
                 </span>
               </p>
               <button
@@ -1935,7 +1943,7 @@ export default function App() {
                                 Edit Recipe
                               </button>
                             ) : null}
-                            {isAdmin ? (
+                            {canDeleteSelectedRecipe ? (
                               <button
                                 type="button"
                                 onClick={handleDeleteRecipe}

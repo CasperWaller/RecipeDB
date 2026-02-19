@@ -92,6 +92,21 @@ def ensure_users_admin_column():
 ensure_users_admin_column()
 
 
+def ensure_users_super_admin_column():
+    inspector = inspect(engine)
+    table_names = set(inspector.get_table_names())
+    if "users" not in table_names:
+        return
+    columns = {column["name"] for column in inspector.get_columns("users")}
+    if "is_super_admin" in columns:
+        return
+    with engine.begin() as connection:
+        connection.execute(text("ALTER TABLE users ADD COLUMN is_super_admin BOOLEAN NOT NULL DEFAULT FALSE"))
+
+
+ensure_users_super_admin_column()
+
+
 def ensure_at_least_one_admin():
     with engine.begin() as connection:
         admin_count = connection.execute(text("SELECT COUNT(*) FROM users WHERE is_admin = TRUE")).scalar()
@@ -104,6 +119,26 @@ def ensure_at_least_one_admin():
 
 
 ensure_at_least_one_admin()
+
+
+def ensure_at_least_one_super_admin():
+    with engine.begin() as connection:
+        super_admin_count = connection.execute(text("SELECT COUNT(*) FROM users WHERE is_super_admin = TRUE")).scalar()
+        if super_admin_count and int(super_admin_count) > 0:
+            return
+
+        first_admin_user_id = connection.execute(text("SELECT id FROM users WHERE is_admin = TRUE ORDER BY id ASC LIMIT 1")).scalar()
+        if first_admin_user_id is None:
+            first_admin_user_id = connection.execute(text("SELECT id FROM users ORDER BY id ASC LIMIT 1")).scalar()
+        if first_admin_user_id is None:
+            return
+        connection.execute(
+            text("UPDATE users SET is_super_admin = TRUE, is_admin = TRUE WHERE id = :user_id"),
+            {"user_id": int(first_admin_user_id)},
+        )
+
+
+ensure_at_least_one_super_admin()
 
 
 def ensure_recipe_author_links():
@@ -167,7 +202,7 @@ def get_current_user(authorization: str | None = Header(default=None), db: Sessi
 
 
 def require_admin(current_user: models.User = Depends(get_current_user)):
-    if not current_user.is_admin:
+    if not (current_user.is_admin or current_user.is_super_admin):
         raise HTTPException(status_code=403, detail="Admin privileges are required")
     return current_user
 
@@ -271,6 +306,8 @@ def delete_recipe(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(require_admin),
 ):
+    if not current_user.is_super_admin and not crud.is_recipe_owner(db, recipe_id, current_user.id):
+        raise HTTPException(status_code=403, detail="Only super admins can remove recipes created by other users")
     recipe = crud.delete_recipe(db, recipe_id)
     if recipe is None:
         raise HTTPException(status_code=404, detail="Recipe not found")
@@ -318,7 +355,7 @@ def update_recipe(
     if existing is None:
         raise HTTPException(status_code=404, detail="Recipe not found")
 
-    if not current_user.is_admin and not crud.is_recipe_owner(db, recipe_id, current_user.id):
+    if not (current_user.is_admin or current_user.is_super_admin) and not crud.is_recipe_owner(db, recipe_id, current_user.id):
         raise HTTPException(status_code=403, detail="Only the recipe owner can edit this recipe")
 
     try:
