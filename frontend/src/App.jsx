@@ -1,11 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
 
+
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
 const VALID_QUANTITY_UNITS = ["ml", "cl", "dl", "l", "mg", "g", "kg", "st"];
 const QUANTITY_PATTERN = /^\d+(?:[.,]\d+)?\s*(ml|cl|dl|l|mg|g|kg|st)$/i;
 const CREATE_DRAFT_STORAGE_KEY = "recipe_create_draft_v1";
 const DEVICE_ID_STORAGE_KEY = "recipe_device_id_v1";
 const SUCCESS_MESSAGE_TIMEOUT_MS = 3000;
+
+// --- Audit Log State ---
+const AUDIT_LOG_PAGE_SIZE = 50;
+
 
 function getClientDeviceId() {
   try {
@@ -236,6 +241,46 @@ export default function App() {
   const [roleSelections, setRoleSelections] = useState({});
   const [usersLoading, setUsersLoading] = useState(false);
   const [roleSavingUserId, setRoleSavingUserId] = useState(null);
+
+  // Audit log state
+  const [auditLogs, setAuditLogs] = useState([]);
+  const [auditLogsLoading, setAuditLogsLoading] = useState(false);
+  const [auditLogsError, setAuditLogsError] = useState("");
+  const [auditLogsOffset, setAuditLogsOffset] = useState(0);
+
+  async function loadAuditLogs(activeToken = token, offset = 0) {
+    if (!activeToken || !isSuperAdmin) {
+      setAuditLogs([]);
+      setAuditLogsError("");
+      return;
+    }
+    setAuditLogsLoading(true);
+    setAuditLogsError("");
+    try {
+      const response = await fetch(`${API_BASE}/admin/audit-logs?limit=${AUDIT_LOG_PAGE_SIZE}&offset=${offset}`, {
+        headers: { Authorization: `Bearer ${activeToken}` },
+      });
+      if (!response.ok) {
+        throw new Error(await getApiErrorMessage(response, "Failed to load audit logs"));
+      }
+      const data = await response.json();
+      setAuditLogs(Array.isArray(data) ? data : []);
+    } catch (err) {
+      setAuditLogs([]);
+      setAuditLogsError(err instanceof Error ? err.message : "Failed to load audit logs");
+    } finally {
+      setAuditLogsLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (isSuperAdmin && token) {
+      loadAuditLogs(token, auditLogsOffset);
+    } else {
+      setAuditLogs([]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSuperAdmin, token, auditLogsOffset]);
   const [pdfExporting, setPdfExporting] = useState(false);
   const [createIngredientFocusIndex, setCreateIngredientFocusIndex] = useState(null);
   const [editIngredientFocusIndex, setEditIngredientFocusIndex] = useState(null);
@@ -1602,7 +1647,53 @@ export default function App() {
         </section>
 
         {isSuperAdmin ? (
-          <section className="mb-6 rounded-2xl border border-slate-200 bg-white p-4">
+          <>
+            <section className="mb-6 rounded-2xl border border-slate-200 bg-white p-4">
+              <div className="mb-3 flex items-center justify-between">
+                <h2 className="text-base font-semibold text-slate-900">Audit Log</h2>
+                <button
+                  type="button"
+                  onClick={() => loadAuditLogs(token, auditLogsOffset)}
+                  disabled={auditLogsLoading}
+                  className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {auditLogsLoading ? "Loading..." : "Refresh"}
+                </button>
+              </div>
+              {auditLogsError ? (
+                <p className="text-sm text-rose-600">{auditLogsError}</p>
+              ) : null}
+              {auditLogs.length === 0 && !auditLogsLoading ? (
+                <p className="text-sm text-slate-500">No audit log entries found.</p>
+              ) : null}
+              {auditLogs.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full text-sm border border-slate-200">
+                    <thead className="bg-slate-100">
+                      <tr>
+                        <th className="px-2 py-1 border-b border-slate-200 text-left">Time</th>
+                        <th className="px-2 py-1 border-b border-slate-200 text-left">User</th>
+                        <th className="px-2 py-1 border-b border-slate-200 text-left">Action</th>
+                        <th className="px-2 py-1 border-b border-slate-200 text-left">Target</th>
+                        <th className="px-2 py-1 border-b border-slate-200 text-left">Details</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {auditLogs.map((log) => (
+                        <tr key={log.id} className="even:bg-slate-50">
+                          <td className="px-2 py-1 whitespace-nowrap">{log.created_at ? new Date(log.created_at).toLocaleString() : "-"}</td>
+                          <td className="px-2 py-1 whitespace-nowrap">{log.username || log.user_id}</td>
+                          <td className="px-2 py-1 whitespace-nowrap">{log.action}</td>
+                          <td className="px-2 py-1 whitespace-nowrap">{log.target_type}{log.target_id != null ? ` #${log.target_id}` : ""}</td>
+                          <td className="px-2 py-1">{log.details || "-"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : null}
+            </section>
+            <section className="mb-6 rounded-2xl border border-slate-200 bg-white p-4">
             <div className="mb-3 flex items-center justify-between">
               <h2 className="text-base font-semibold text-slate-900">Role Management</h2>
               <button
@@ -1666,6 +1757,7 @@ export default function App() {
               </ul>
             )}
           </section>
+          </>
         ) : null}
 
         <div className="mb-6 grid gap-4 sm:grid-cols-4">

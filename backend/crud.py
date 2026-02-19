@@ -17,8 +17,34 @@ from .models import (
     RecipeFavorite,
     OnlineDevicePresence,
     CommentLike,
+    AuditLog,
 )
 from .schemas import RecipeCreate, IngredientCreate, TagCreate, CommentCreate
+
+
+# --- Audit Log CRUD ---
+def create_audit_log(db: Session, user_id: int, action: str, target_type: str, target_id: int | None = None, details: str | None = None):
+    log = AuditLog(
+        user_id=user_id,
+        action=action,
+        target_type=target_type,
+        target_id=target_id,
+        details=details,
+    )
+    db.add(log)
+    db.commit()
+    db.refresh(log)
+    return log
+
+def list_audit_logs(db: Session, limit: int = 100, offset: int = 0):
+    logs = db.query(AuditLog).order_by(AuditLog.created_at.desc()).offset(offset).limit(limit).all()
+    # Attach username for display
+    for log in logs:
+        if hasattr(log, 'user') and log.user:
+            log.username = log.user.username
+        else:
+            log.username = None
+    return logs
 
 
 VALID_QUANTITY_UNITS = {"ml", "cl", "dl", "l", "mg", "g", "kg", "st"}

@@ -109,3 +109,16 @@ class RecipeComment(Base):
     content = Column(Text, nullable=False)
     created_at = Column(TIMESTAMP, server_default=func.now())
     recipe = relationship("Recipe", back_populates="comments")
+
+
+# --- Audit Log Model ---
+class AuditLog(Base):
+    __tablename__ = "audit_logs"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    action = Column(Text, nullable=False)  # e.g., 'delete_ingredient', 'update_role', etc.
+    target_type = Column(Text, nullable=False)  # e.g., 'ingredient', 'user', 'recipe'
+    target_id = Column(Integer, nullable=True)  # ID of the affected object, if applicable
+    details = Column(Text, nullable=True)  # Optional JSON/text with extra info
+    created_at = Column(TIMESTAMP, server_default=func.now())
+    user = relationship("User")

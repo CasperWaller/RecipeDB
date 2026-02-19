@@ -213,6 +213,21 @@ def require_super_admin(current_user: models.User = Depends(get_current_user)):
     return current_user
 
 
+# --- Audit Log Endpoints ---
+from fastapi import Query
+
+@app.get("/admin/audit-logs", response_model=list[schemas.AuditLog])
+def get_audit_logs(
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    current_user: models.User = Depends(require_super_admin),
+    db: Session = Depends(get_db),
+):
+    logs = crud.list_audit_logs(db, limit=limit, offset=offset)
+    # Attach username for each log (already handled in CRUD)
+    return logs
+
+
 @app.get("/")
 def root():
     return {"message": "Recipe API is running"}
@@ -296,6 +311,15 @@ def update_user_role(
     _ = current_user
     try:
         updated = crud.update_user_role(db, user_id=user_id, role=payload.role)
+        # Audit log for role change
+        crud.create_audit_log(
+            db=db,
+            user_id=current_user.id,
+            action="update_role",
+            target_type="user",
+            target_id=user_id,
+            details=f"Set role to {payload.role}",
+        )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     if updated is None:
@@ -343,6 +367,15 @@ def delete_recipe(
     recipe = crud.delete_recipe(db, recipe_id)
     if recipe is None:
         raise HTTPException(status_code=404, detail="Recipe not found")
+    # Audit log for recipe deletion
+    crud.create_audit_log(
+        db=db,
+        user_id=current_user.id,
+        action="delete_recipe",
+        target_type="recipe",
+        target_id=recipe_id,
+        details=f"Deleted recipe: {getattr(recipe, 'title', '')}",
+    )
     return recipe
 
 
@@ -516,6 +549,15 @@ def update_ingredient(
     _ = current_user
     try:
         updated = crud.update_ingredient(db, ingredient_id=ingredient_id, name=payload.name)
+        # Audit log for ingredient update
+        crud.create_audit_log(
+            db=db,
+            user_id=current_user.id,
+            action="update_ingredient",
+            target_type="ingredient",
+            target_id=ingredient_id,
+            details=f"Updated ingredient name to {payload.name}",
+        )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     if updated is None:
@@ -536,6 +578,15 @@ def remove_ingredient(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     if deleted is None:
         raise HTTPException(status_code=404, detail="Ingredient not found")
+    # Audit log for ingredient deletion
+    crud.create_audit_log(
+        db=db,
+        user_id=current_user.id,
+        action="delete_ingredient",
+        target_type="ingredient",
+        target_id=ingredient_id,
+        details=f"Deleted ingredient: {getattr(deleted, 'name', '')}",
+    )
     return deleted
 
 # Tags
