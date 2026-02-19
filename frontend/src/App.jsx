@@ -1341,43 +1341,49 @@ export default function App() {
                           Created by {selectedRecipe.created_by_username || "Unknown user"}
                         </p>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={handleExportRecipePdf}
-                          disabled={pdfExporting}
-                          className="rounded-md border border-slate-300 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          {pdfExporting ? "Exporting..." : "Export PDF"}
-                        </button>
-                        {currentUser ? (
+                      <div className="flex flex-col items-end gap-2">
+                        <div className="flex flex-wrap justify-end gap-2">
                           <button
                             type="button"
-                            onClick={() => toggleFavorite(selectedRecipe.id)}
-                            className="rounded-md border border-slate-300 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100"
-                          >
-                            {favoriteRecipeIdSet.has(selectedRecipe.id) ? "★ Favorited" : "☆ Favorite"}
-                          </button>
-                        ) : null}
-                        {canEditSelectedRecipe ? (
-                          <button
-                            type="button"
-                            onClick={startEditRecipe}
-                            disabled={editMode}
+                            onClick={handleExportRecipePdf}
+                            disabled={pdfExporting}
                             className="rounded-md border border-slate-300 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
                           >
-                            Edit Recipe
+                            {pdfExporting ? "Exporting..." : "Export PDF"}
                           </button>
-                        ) : null}
-                        {isAdmin ? (
-                          <button
-                            type="button"
-                            onClick={handleDeleteRecipe}
-                            disabled={recipeDeleting}
-                            className="rounded-md border border-rose-200 px-2.5 py-1.5 text-xs font-medium text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
-                          >
-                            {recipeDeleting ? "Removing..." : "Remove Recipe"}
-                          </button>
+                          {currentUser ? (
+                            <button
+                              type="button"
+                              onClick={() => toggleFavorite(selectedRecipe.id)}
+                              className="rounded-md border border-slate-300 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100"
+                            >
+                              {favoriteRecipeIdSet.has(selectedRecipe.id) ? "★ Favorited" : "☆ Favorite"}
+                            </button>
+                          ) : null}
+                        </div>
+                        {canEditSelectedRecipe || isAdmin ? (
+                          <div className="flex flex-wrap justify-end gap-2">
+                            {canEditSelectedRecipe ? (
+                              <button
+                                type="button"
+                                onClick={startEditRecipe}
+                                disabled={editMode}
+                                className="rounded-md border border-slate-300 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+                              >
+                                Edit Recipe
+                              </button>
+                            ) : null}
+                            {isAdmin ? (
+                              <button
+                                type="button"
+                                onClick={handleDeleteRecipe}
+                                disabled={recipeDeleting}
+                                className="rounded-md border border-rose-200 px-2.5 py-1.5 text-xs font-medium text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
+                              >
+                                {recipeDeleting ? "Removing..." : "Remove Recipe"}
+                              </button>
+                            ) : null}
+                          </div>
                         ) : null}
                       </div>
                     </div>
