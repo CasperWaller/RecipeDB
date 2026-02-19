@@ -3,8 +3,12 @@ from sqlalchemy import or_, and_, func
 import re
 import secrets
 import hashlib
-from .models import Recipe, Ingredient, Tag, RecipeComment, User, AuthToken, RecipeAuthor, CommentAuthor
+from .models import Recipe, Ingredient, Tag, RecipeComment, User, AuthToken, RecipeAuthor, CommentAuthor, RecipeIngredient
 from .schemas import RecipeCreate, IngredientCreate, TagCreate, CommentCreate
+
+
+VALID_QUANTITY_UNITS = {"ml", "cl", "dl", "l", "mg", "g", "kg", "st"}
+QUANTITY_PATTERN = re.compile(r"^\d+(?:[\.,]\d+)?\s*(ml|cl|dl|l|mg|g|kg|st)$", re.IGNORECASE)
 
 
 def _hash_password(password: str, salt: str | None = None):
@@ -63,6 +67,7 @@ def get_recipes(db: Session):
         selectinload(Recipe.comments)
     ).all()
     _attach_recipe_authors(db, recipes)
+    _attach_ingredient_measurements(db, recipes)
     _attach_comment_authors(db, recipes)
     return recipes
 
@@ -74,6 +79,7 @@ def get_recipe(db: Session, recipe_id: int):
     ).filter(Recipe.id == recipe_id).first()
     if recipe:
         _attach_recipe_authors(db, [recipe])
+        _attach_ingredient_measurements(db, [recipe])
         _attach_comment_authors(db, [recipe])
     return recipe
 
@@ -83,15 +89,17 @@ def create_recipe(db: Session, recipe: RecipeCreate, user_id: int):
     db.add(db_recipe)
     db.flush()
 
-    ingredient_names = _extract_unique_names(recipe.ingredients or [], "ingredients")
+    ingredient_entries = _extract_ingredient_entries(recipe.ingredients or [])
     ingredients = []
-    for name in ingredient_names:
+    ingredient_by_name = {}
+    for name, _ in ingredient_entries:
         existing = db.query(Ingredient).filter(func.lower(Ingredient.name) == name).first()
         if not existing:
             existing = Ingredient(name=name)
             db.add(existing)
             db.flush()
         ingredients.append(existing)
+        ingredient_by_name[name] = existing
 
     tag_names = _extract_unique_names(recipe.tags or [], "tags")
     tags = []
@@ -105,10 +113,13 @@ def create_recipe(db: Session, recipe: RecipeCreate, user_id: int):
 
     db_recipe.ingredients = ingredients
     db_recipe.tags = tags
+    db.flush()
+    _apply_recipe_ingredient_quantities(db, db_recipe.id, ingredient_entries, ingredient_by_name)
     db.add(RecipeAuthor(recipe_id=db_recipe.id, user_id=user_id))
     db.commit()
     db.refresh(db_recipe)
     _attach_recipe_authors(db, [db_recipe])
+    _attach_ingredient_measurements(db, [db_recipe])
     _attach_comment_authors(db, [db_recipe])
     return db_recipe
 
@@ -126,15 +137,17 @@ def update_recipe(db: Session, recipe_id: int, recipe: RecipeCreate):
     for key, value in recipe_data.items():
         setattr(db_recipe, key, value)
 
-    ingredient_names = _extract_unique_names(recipe.ingredients or [], "ingredients")
+    ingredient_entries = _extract_ingredient_entries(recipe.ingredients or [])
     ingredients = []
-    for name in ingredient_names:
+    ingredient_by_name = {}
+    for name, _ in ingredient_entries:
         existing = db.query(Ingredient).filter(func.lower(Ingredient.name) == name).first()
         if not existing:
             existing = Ingredient(name=name)
             db.add(existing)
             db.flush()
         ingredients.append(existing)
+        ingredient_by_name[name] = existing
 
     tag_names = _extract_unique_names(recipe.tags or [], "tags")
     tags = []
@@ -148,10 +161,13 @@ def update_recipe(db: Session, recipe_id: int, recipe: RecipeCreate):
 
     db_recipe.ingredients = ingredients
     db_recipe.tags = tags
+    db.flush()
+    _apply_recipe_ingredient_quantities(db, db_recipe.id, ingredient_entries, ingredient_by_name)
 
     db.commit()
     db.refresh(db_recipe)
     _attach_recipe_authors(db, [db_recipe])
+    _attach_ingredient_measurements(db, [db_recipe])
     _attach_comment_authors(db, [db_recipe])
     return db_recipe
 
@@ -202,6 +218,65 @@ def _extract_unique_names(items: list[IngredientCreate | TagCreate], field_label
 
     return names
 
+
+def _extract_ingredient_entries(items: list[IngredientCreate]):
+    entries = []
+    for item in items:
+        quantity = _normalize_quantity(item.quantity)
+        for raw in _split_names(item.name):
+            normalized = raw.strip().lower()
+            if normalized:
+                entries.append((normalized, quantity))
+
+    names = [name for name, _ in entries]
+    seen = set()
+    duplicates = []
+    for name in names:
+        if name in seen and name not in duplicates:
+            duplicates.append(name)
+        seen.add(name)
+
+    if duplicates:
+        raise ValueError(f"Duplicate ingredients: {', '.join(duplicates)}")
+
+    return entries
+
+
+def _normalize_quantity(raw_quantity: str | None):
+    value = (raw_quantity or "").strip().lower()
+    if not value:
+        return None
+
+    compact = re.sub(r"\s+", "", value)
+    match = QUANTITY_PATTERN.match(compact)
+    if not match:
+        raise ValueError("Quantity must use EU units like ml, dl, l, g, or kg (example: 2 dl)")
+
+    unit = match.group(1).lower()
+    if unit not in VALID_QUANTITY_UNITS:
+        raise ValueError("Unsupported quantity unit")
+
+    number = compact[: -len(unit)]
+    return f"{number} {unit}".replace(",", ".")
+
+
+def _apply_recipe_ingredient_quantities(
+    db: Session,
+    recipe_id: int,
+    ingredient_entries: list[tuple[str, str | None]],
+    ingredient_by_name: dict[str, Ingredient],
+):
+    for name, quantity in ingredient_entries:
+        ingredient = ingredient_by_name.get(name)
+        if ingredient is None:
+            continue
+        row = db.query(RecipeIngredient).filter(
+            RecipeIngredient.recipe_id == recipe_id,
+            RecipeIngredient.ingredient_id == ingredient.id,
+        ).first()
+        if row:
+            row.quantity = quantity
+
 def search_recipes(db: Session, query: str, scope: str = "all"):
     terms = _split_terms(query)
     base = db.query(Recipe).options(
@@ -212,6 +287,7 @@ def search_recipes(db: Session, query: str, scope: str = "all"):
 
     def _with_authors(results: list[Recipe]):
         _attach_recipe_authors(db, results)
+        _attach_ingredient_measurements(db, results)
         _attach_comment_authors(db, results)
         return results
 
@@ -324,6 +400,34 @@ def _attach_recipe_authors(db: Session, recipes: list[Recipe]):
     authors = {recipe_id: username for recipe_id, username in rows}
     for recipe in recipes:
         recipe.created_by_username = authors.get(recipe.id)
+
+
+def _attach_ingredient_measurements(db: Session, recipes: list[Recipe]):
+    recipe_ids = [recipe.id for recipe in recipes]
+    if not recipe_ids:
+        return
+
+    rows = db.query(
+        RecipeIngredient.recipe_id,
+        RecipeIngredient.ingredient_id,
+        Ingredient.name,
+        RecipeIngredient.quantity,
+    ).join(Ingredient, Ingredient.id == RecipeIngredient.ingredient_id).filter(
+        RecipeIngredient.recipe_id.in_(recipe_ids)
+    ).all()
+
+    by_recipe_id: dict[int, list[dict]] = {recipe_id: [] for recipe_id in recipe_ids}
+    for recipe_id, ingredient_id, name, quantity in rows:
+        by_recipe_id.setdefault(recipe_id, []).append(
+            {
+                "ingredient_id": ingredient_id,
+                "name": name,
+                "quantity": quantity,
+            }
+        )
+
+    for recipe in recipes:
+        recipe.ingredient_measurements = by_recipe_id.get(recipe.id, [])
 
 
 def _attach_comment_authors(db: Session, recipes: list[Recipe]):

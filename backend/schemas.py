@@ -29,7 +29,7 @@ class IngredientBase(BaseModel):
     name: str
 
 class IngredientCreate(IngredientBase):
-    pass
+    quantity: Optional[str] = None
 
 class Ingredient(IngredientBase):
     id: int
@@ -75,9 +75,16 @@ class RecipeCreate(RecipeBase):
     ingredients: List[IngredientCreate] = Field(default_factory=list)
     tags: List[TagCreate] = Field(default_factory=list)
 
+
+class IngredientMeasurement(BaseModel):
+    ingredient_id: int
+    name: str
+    quantity: Optional[str] = None
+
 class Recipe(RecipeBase):
     id: int
     ingredients: List[Ingredient] = Field(default_factory=list)
+    ingredient_measurements: List[IngredientMeasurement] = Field(default_factory=list)
     tags: List[Tag] = Field(default_factory=list)
     comments: List[Comment] = Field(default_factory=list)
     created_by_username: Optional[str] = None

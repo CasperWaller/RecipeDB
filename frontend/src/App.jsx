@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
+const VALID_QUANTITY_UNITS = ["ml", "cl", "dl", "l", "mg", "g", "kg", "st"];
+const QUANTITY_PATTERN = /^\d+(?:[.,]\d+)?\s*(ml|cl|dl|l|mg|g|kg|st)$/i;
 
 function toTitleCase(value) {
   return String(value || "")
@@ -15,6 +17,29 @@ function parseList(value) {
     .filter(Boolean);
 }
 
+function parseIngredientEntries(value) {
+  return parseList(value)
+    .map((item) => {
+      const separatorIndex = item.indexOf(":");
+      if (separatorIndex < 0) {
+        return { name: item, quantity: null };
+      }
+      const name = item.slice(0, separatorIndex).trim();
+      const quantity = item.slice(separatorIndex + 1).trim();
+      return { name, quantity: quantity || null };
+    })
+    .filter((item) => item.name);
+}
+
+function formatIngredientEntries(items) {
+  return (items || [])
+    .map((item) => {
+      const quantity = item.quantity ? String(item.quantity).trim() : "";
+      return quantity ? `${item.name}: ${quantity}` : item.name;
+    })
+    .join(", ");
+}
+
 function findDuplicates(values) {
   const counts = new Map();
   values.forEach((value) => {
@@ -26,7 +51,8 @@ function findDuplicates(values) {
 
 function validateRecipeForm({ title, prepTime, cookTime, ingredientsText, tagsText }) {
   const errors = {};
-  const ingredientNames = parseList(ingredientsText);
+  const ingredientEntries = parseIngredientEntries(ingredientsText);
+  const ingredientNames = ingredientEntries.map((item) => item.name);
   const tagNames = parseList(tagsText);
 
   if (!title.trim()) {
@@ -46,12 +72,23 @@ function validateRecipeForm({ title, prepTime, cookTime, ingredientsText, tagsTe
     errors.ingredients = `Duplicate ingredients: ${duplicateIngredients.join(", ")}`;
   }
 
+  const invalidQuantity = ingredientEntries.find((item) => {
+    if (!item.quantity) {
+      return false;
+    }
+    const normalized = item.quantity.trim().toLowerCase();
+    return !QUANTITY_PATTERN.test(normalized);
+  });
+  if (invalidQuantity) {
+    errors.ingredients = `Use EU units (${VALID_QUANTITY_UNITS.join(", ")}) e.g. flour: 2 dl`;
+  }
+
   const duplicateTags = findDuplicates(tagNames);
   if (duplicateTags.length > 0) {
     errors.tags = `Duplicate tags: ${duplicateTags.join(", ")}`;
   }
 
-  return { errors, ingredientNames, tagNames };
+  return { errors, ingredientEntries, tagNames };
 }
 
 function toPdfFileName(value) {
@@ -151,6 +188,14 @@ export default function App() {
     return items.sort((a, b) => b.id - a.id);
   }, [recipes, sortBy]);
 
+  const selectedIngredientQuantities = useMemo(() => {
+    const lookup = new Map();
+    (selectedRecipe?.ingredient_measurements || []).forEach((item) => {
+      lookup.set(item.ingredient_id, item.quantity || null);
+    });
+    return lookup;
+  }, [selectedRecipe]);
+
   async function loadRecipes(options = {}) {
     const query = options.query ?? searchQuery;
     const scope = options.scope ?? searchScope;
@@ -246,7 +291,7 @@ export default function App() {
       return;
     }
 
-    const { errors, ingredientNames, tagNames } = validateRecipeForm({
+    const { errors, ingredientEntries, tagNames } = validateRecipeForm({
       title,
       prepTime,
       cookTime,
@@ -266,7 +311,7 @@ export default function App() {
       description: description.trim() || null,
       prep_time: prepTime.trim() ? Number(prepTime) : null,
       cook_time: cookTime.trim() ? Number(cookTime) : null,
-      ingredients: ingredientNames.map((name) => ({ name })),
+      ingredients: ingredientEntries.map((item) => ({ name: item.name, quantity: item.quantity })),
       tags: tagNames.map((name) => ({ name })),
     };
 
@@ -408,7 +453,15 @@ export default function App() {
     setEditDescription(selectedRecipe.description || "");
     setEditPrepTime(selectedRecipe.prep_time != null ? String(selectedRecipe.prep_time) : "");
     setEditCookTime(selectedRecipe.cook_time != null ? String(selectedRecipe.cook_time) : "");
-    setEditIngredientsText((selectedRecipe.ingredients || []).map((item) => item.name).join(", "));
+    const ingredientEntries = (selectedRecipe.ingredient_measurements || []).map((item) => ({
+      name: item.name,
+      quantity: item.quantity,
+    }));
+    setEditIngredientsText(
+      ingredientEntries.length > 0
+        ? formatIngredientEntries(ingredientEntries)
+        : (selectedRecipe.ingredients || []).map((item) => item.name).join(", ")
+    );
     setEditTagsText((selectedRecipe.tags || []).map((item) => item.name).join(", "));
     setEditValidationErrors({});
     setEditMode(true);
@@ -435,7 +488,7 @@ export default function App() {
       return;
     }
     setEditValidationErrors({});
-    const { errors, ingredientNames, tagNames } = validateRecipeForm({
+    const { errors, ingredientEntries, tagNames } = validateRecipeForm({
       title: editTitle,
       prepTime: editPrepTime,
       cookTime: editCookTime,
@@ -453,7 +506,7 @@ export default function App() {
       description: editDescription.trim() || null,
       prep_time: editPrepTime.trim() ? Number(editPrepTime) : null,
       cook_time: editCookTime.trim() ? Number(editCookTime) : null,
-      ingredients: ingredientNames.map((name) => ({ name })),
+      ingredients: ingredientEntries.map((item) => ({ name: item.name, quantity: item.quantity })),
       tags: tagNames.map((name) => ({ name })),
     };
 
@@ -660,10 +713,12 @@ export default function App() {
       writeTextLine("No ingredients listed", { color: [100, 116, 139] });
     } else {
       ingredients.forEach((item) => {
+        const quantity = selectedIngredientQuantities.get(item.id);
+        const ingredientLabel = quantity ? `${toTitleCase(item.name)} (${quantity})` : toTitleCase(item.name);
         ensureSpace(14);
         doc.setFillColor(100, 116, 139);
         doc.circle(margin + 4, cursorY - 4, 2, "F");
-        writeTextLine(toTitleCase(item.name), { x: margin + 12, maxWidth: contentWidth - 12, color: [51, 65, 85] });
+        writeTextLine(ingredientLabel, { x: margin + 12, maxWidth: contentWidth - 12, color: [51, 65, 85] });
       });
     }
     cursorY += 6;
@@ -825,9 +880,10 @@ export default function App() {
                     setIngredientsText(event.target.value);
                     setCreateValidationErrors((previous) => ({ ...previous, ingredients: "" }));
                   }}
-                  placeholder="tomato, garlic, pasta"
+                  placeholder="flour: 2 dl, milk: 300 ml, sugar: 150 g"
                   className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-0 placeholder:text-slate-400 focus:border-slate-400"
                 />
+                <p className="mt-1 text-xs text-slate-500">Use format ingredient: quantity (ml, cl, dl, l, mg, g, kg, st)</p>
                 {createValidationErrors.ingredients ? (
                   <p className="mt-1 text-xs text-rose-600">{createValidationErrors.ingredients}</p>
                 ) : null}
@@ -1020,7 +1076,12 @@ export default function App() {
                     <div className="mt-3 text-sm text-slate-700">
                       <strong>Ingredients:</strong>{" "}
                       {(selectedRecipe.ingredients || []).length > 0
-                        ? selectedRecipe.ingredients.map((item) => toTitleCase(item.name)).join(", ")
+                        ? selectedRecipe.ingredients
+                            .map((item) => {
+                              const quantity = selectedIngredientQuantities.get(item.id);
+                              return quantity ? `${toTitleCase(item.name)} (${quantity})` : toTitleCase(item.name);
+                            })
+                            .join(", ")
                         : "-"}
                     </div>
                     <div className="mt-1 text-sm text-slate-700">
@@ -1106,8 +1167,10 @@ export default function App() {
                               setEditIngredientsText(event.target.value);
                               setEditValidationErrors((previous) => ({ ...previous, ingredients: "" }));
                             }}
+                            placeholder="flour: 2 dl, milk: 300 ml, sugar: 150 g"
                             className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-0 focus:border-slate-400"
                           />
+                          <p className="mt-1 text-xs text-slate-500">Use format ingredient: quantity (ml, cl, dl, l, mg, g, kg, st)</p>
                           {editValidationErrors.ingredients ? (
                             <p className="mt-1 text-xs text-rose-600">{editValidationErrors.ingredients}</p>
                           ) : null}
