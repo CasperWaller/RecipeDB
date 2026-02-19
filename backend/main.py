@@ -6,6 +6,8 @@ from sqlalchemy import inspect, text
 from . import crud, models, schemas
 from .database import engine, get_db, Base
 
+ONLINE_DEVICE_WINDOW_SECONDS = int(os.getenv("ONLINE_DEVICE_WINDOW_SECONDS", "300"))
+
 # Create tables
 Base.metadata.create_all(bind=engine)
 
@@ -19,6 +21,23 @@ def ensure_recipe_favorites_table():
 
 
 ensure_recipe_favorites_table()
+
+
+def ensure_auth_tokens_last_seen_column():
+    inspector = inspect(engine)
+    table_names = set(inspector.get_table_names())
+    if "auth_tokens" not in table_names:
+        return
+    columns = {column["name"] for column in inspector.get_columns("auth_tokens")}
+    if "last_seen_at" in columns:
+        return
+    with engine.begin() as connection:
+        connection.execute(
+            text("ALTER TABLE auth_tokens ADD COLUMN last_seen_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP")
+        )
+
+
+ensure_auth_tokens_last_seen_column()
 
 
 def ensure_users_admin_column():
@@ -104,7 +123,7 @@ def get_current_user(authorization: str | None = Header(default=None), db: Sessi
     token = authorization.removeprefix("Bearer ").strip()
     if not token:
         raise HTTPException(status_code=401, detail="Invalid token")
-    user = crud.get_user_by_token(db, token)
+    user = crud.get_user_by_token(db, token, touch=True)
     if user is None:
         raise HTTPException(status_code=401, detail="Invalid token")
     return user
@@ -119,6 +138,20 @@ def require_admin(current_user: models.User = Depends(get_current_user)):
 @app.get("/")
 def root():
     return {"message": "Recipe API is running"}
+
+
+@app.get("/presence/online-devices", response_model=schemas.OnlineDevicesResponse)
+def read_online_devices(db: Session = Depends(get_db)):
+    return {"online_devices": crud.get_online_device_count(db, ONLINE_DEVICE_WINDOW_SECONDS)}
+
+
+@app.post("/presence/heartbeat", response_model=schemas.OnlineDevicesResponse)
+def presence_heartbeat(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    _ = current_user
+    return {"online_devices": crud.get_online_device_count(db, ONLINE_DEVICE_WINDOW_SECONDS)}
 
 
 @app.post("/auth/register", response_model=schemas.UserPublic)

@@ -19,6 +19,7 @@ class AuthToken(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     token = Column(Text, nullable=False, unique=True, index=True)
     created_at = Column(TIMESTAMP, server_default=func.now())
+    last_seen_at = Column(TIMESTAMP, nullable=False, server_default=func.now())
     user = relationship("User")
 
 

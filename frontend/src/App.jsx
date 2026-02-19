@@ -166,6 +166,7 @@ export default function App() {
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [backendStatus, setBackendStatus] = useState("checking");
+  const [onlineDevices, setOnlineDevices] = useState(0);
 
   const [title, setTitle] = useState(createDraftSeed.title);
   const [description, setDescription] = useState(createDraftSeed.description);
@@ -389,8 +390,59 @@ export default function App() {
     );
   }, [title, description, prepTime, cookTime, ingredientRows, tagsText]);
 
+  useEffect(() => {
+    let disposed = false;
+
+    async function refreshPresence() {
+      if (!token) {
+        await loadOnlineDevices();
+        return;
+      }
+      try {
+        const response = await fetch(`${API_BASE}/presence/heartbeat`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!response.ok) {
+          await loadOnlineDevices();
+          return;
+        }
+        const data = await response.json();
+        const count = Number(data?.online_devices);
+        if (!disposed && Number.isFinite(count)) {
+          setOnlineDevices(count);
+        }
+      } catch {
+        await loadOnlineDevices();
+      }
+    }
+
+    refreshPresence();
+    const intervalId = setInterval(refreshPresence, 30000);
+    return () => {
+      disposed = true;
+      clearInterval(intervalId);
+    };
+  }, [token]);
+
   function getAuthHeaders() {
     return token ? { Authorization: `Bearer ${token}` } : {};
+  }
+
+  async function loadOnlineDevices() {
+    try {
+      const response = await fetch(`${API_BASE}/presence/online-devices`);
+      if (!response.ok) {
+        return;
+      }
+      const data = await response.json();
+      const count = Number(data?.online_devices);
+      if (Number.isFinite(count)) {
+        setOnlineDevices(count);
+      }
+    } catch {
+      // no-op
+    }
   }
 
   async function loadFavorites(activeToken = token) {
@@ -1090,10 +1142,14 @@ export default function App() {
           )}
         </section>
 
-        <div className="mb-6 grid gap-4 sm:grid-cols-3">
+        <div className="mb-6 grid gap-4 sm:grid-cols-4">
           <div className="rounded-xl border border-slate-200 bg-white p-4">
             <p className="text-sm text-slate-500">Total recipes</p>
             <p className="mt-1 text-2xl font-semibold text-slate-900">{recipes.length}</p>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-white p-4">
+            <p className="text-sm text-slate-500">Online devices</p>
+            <p className="mt-1 text-2xl font-semibold text-slate-900">{onlineDevices}</p>
           </div>
           <div className="rounded-xl border border-slate-200 bg-white p-4">
             <p className="text-sm text-slate-500">Backend</p>

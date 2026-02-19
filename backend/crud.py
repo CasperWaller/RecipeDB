@@ -1,5 +1,6 @@
 from sqlalchemy.orm import Session, selectinload
 from sqlalchemy import or_, and_, func
+from datetime import datetime, timedelta
 import re
 import secrets
 import hashlib
@@ -29,10 +30,13 @@ def get_user_by_username(db: Session, username: str):
     return db.query(User).filter(func.lower(User.username) == username.strip().lower()).first()
 
 
-def get_user_by_token(db: Session, token: str):
+def get_user_by_token(db: Session, token: str, touch: bool = False):
     token_row = db.query(AuthToken).filter(AuthToken.token == token).first()
     if not token_row:
         return None
+    if touch:
+        token_row.last_seen_at = datetime.utcnow()
+        db.commit()
     return db.query(User).filter(User.id == token_row.user_id).first()
 
 
@@ -59,6 +63,13 @@ def login_user(db: Session, username: str, password: str):
     db.add(token)
     db.commit()
     return token_value, user
+
+
+def get_online_device_count(db: Session, window_seconds: int = 300):
+    safe_window = max(30, int(window_seconds or 300))
+    threshold = datetime.utcnow() - timedelta(seconds=safe_window)
+    count = db.query(func.count(AuthToken.id)).filter(AuthToken.last_seen_at >= threshold).scalar() or 0
+    return int(count)
 
 def get_recipes(db: Session):
     recipes = db.query(Recipe).options(

@@ -98,3 +98,7 @@ class RecipeFavorite(BaseModel):
 
 class RecipeFavoriteList(BaseModel):
     recipe_ids: List[int] = Field(default_factory=list)
+
+
+class OnlineDevicesResponse(BaseModel):
+    online_devices: int = 0
