@@ -23,6 +23,17 @@ def ensure_recipe_favorites_table():
 ensure_recipe_favorites_table()
 
 
+def ensure_comment_likes_table():
+    inspector = inspect(engine)
+    table_names = set(inspector.get_table_names())
+    if "comment_likes" in table_names:
+        return
+    models.CommentLike.__table__.create(bind=engine, checkfirst=True)
+
+
+ensure_comment_likes_table()
+
+
 def ensure_online_device_presence_table():
     inspector = inspect(engine)
     table_names = set(inspector.get_table_names())
@@ -360,6 +371,45 @@ def remove_recipe_comment(
     if deleted_comment is None:
         raise HTTPException(status_code=404, detail="Comment not found")
     return deleted_comment
+
+
+@app.get("/recipes/{recipe_id}/comment-likes", response_model=schemas.CommentLikeList)
+def read_comment_likes(
+    recipe_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    recipe = crud.get_recipe(db, recipe_id)
+    if recipe is None:
+        raise HTTPException(status_code=404, detail="Recipe not found")
+    comment_ids = crud.get_liked_comment_ids(db, recipe_id=recipe_id, user_id=current_user.id)
+    return {"comment_ids": comment_ids}
+
+
+@app.post("/recipes/{recipe_id}/comments/{comment_id}/like", response_model=schemas.CommentLike)
+def add_comment_like(
+    recipe_id: int,
+    comment_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    result = crud.add_comment_like(db, recipe_id=recipe_id, comment_id=comment_id, user_id=current_user.id)
+    if result is None:
+        raise HTTPException(status_code=404, detail="Comment not found")
+    return result
+
+
+@app.delete("/recipes/{recipe_id}/comments/{comment_id}/like", response_model=schemas.CommentLike)
+def remove_comment_like(
+    recipe_id: int,
+    comment_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    result = crud.remove_comment_like(db, recipe_id=recipe_id, comment_id=comment_id, user_id=current_user.id)
+    if result is None:
+        raise HTTPException(status_code=404, detail="Comment not found")
+    return result
 
 @app.get("/recipes/search", response_model=list[schemas.Recipe])
 def search(query: str, scope: str = "all", db: Session = Depends(get_db)):

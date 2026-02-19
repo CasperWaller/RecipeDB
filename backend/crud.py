@@ -16,6 +16,7 @@ from .models import (
     RecipeIngredient,
     RecipeFavorite,
     OnlineDevicePresence,
+    CommentLike,
 )
 from .schemas import RecipeCreate, IngredientCreate, TagCreate, CommentCreate
 
@@ -259,6 +260,7 @@ def delete_recipe(db: Session, recipe_id: int):
     if db_recipe:
         comment_ids = [comment.id for comment in db_recipe.comments]
         if comment_ids:
+            db.query(CommentLike).filter(CommentLike.comment_id.in_(comment_ids)).delete(synchronize_session=False)
             db.query(CommentAuthor).filter(CommentAuthor.comment_id.in_(comment_ids)).delete(synchronize_session=False)
         db.query(RecipeFavorite).filter(RecipeFavorite.recipe_id == recipe_id).delete(synchronize_session=False)
         db.query(RecipeAuthor).filter(RecipeAuthor.recipe_id == recipe_id).delete(synchronize_session=False)
@@ -476,8 +478,18 @@ def get_recipe_comments(db: Session, recipe_id: int):
         return comments
     rows = db.query(CommentAuthor.comment_id, User.username).join(User, User.id == CommentAuthor.user_id).filter(CommentAuthor.comment_id.in_(comment_ids)).all()
     authors = {comment_id: username for comment_id, username in rows}
+    like_rows = db.query(
+        CommentLike.comment_id,
+        func.count(CommentLike.user_id),
+    ).filter(
+        CommentLike.comment_id.in_(comment_ids)
+    ).group_by(
+        CommentLike.comment_id
+    ).all()
+    like_counts = {comment_id: int(count) for comment_id, count in like_rows}
     for comment in comments:
         comment.created_by_username = authors.get(comment.id)
+        comment.like_count = like_counts.get(comment.id, 0)
     return comments
 
 
@@ -489,6 +501,7 @@ def create_recipe_comment(db: Session, recipe_id: int, comment: CommentCreate, u
     db.commit()
     db.refresh(db_comment)
     db_comment.created_by_username = db.query(User.username).filter(User.id == user_id).scalar()
+    db_comment.like_count = 0
     return db_comment
 
 
@@ -498,10 +511,58 @@ def delete_recipe_comment(db: Session, recipe_id: int, comment_id: int):
         RecipeComment.recipe_id == recipe_id,
     ).first()
     if db_comment:
+        db.query(CommentLike).filter(CommentLike.comment_id == comment_id).delete(synchronize_session=False)
         db.query(CommentAuthor).filter(CommentAuthor.comment_id == comment_id).delete(synchronize_session=False)
         db.delete(db_comment)
         db.commit()
     return db_comment
+
+
+def get_liked_comment_ids(db: Session, recipe_id: int, user_id: int):
+    rows = db.query(CommentLike.comment_id).join(
+        RecipeComment,
+        RecipeComment.id == CommentLike.comment_id,
+    ).filter(
+        CommentLike.user_id == user_id,
+        RecipeComment.recipe_id == recipe_id,
+    ).all()
+    return [comment_id for (comment_id,) in rows]
+
+
+def add_comment_like(db: Session, recipe_id: int, comment_id: int, user_id: int):
+    comment_exists = db.query(RecipeComment.id).filter(
+        RecipeComment.id == comment_id,
+        RecipeComment.recipe_id == recipe_id,
+    ).first()
+    if comment_exists is None:
+        return None
+
+    existing = db.query(CommentLike).filter(
+        CommentLike.comment_id == comment_id,
+        CommentLike.user_id == user_id,
+    ).first()
+    if existing is None:
+        db.add(CommentLike(comment_id=comment_id, user_id=user_id))
+        db.commit()
+    return {"comment_id": comment_id}
+
+
+def remove_comment_like(db: Session, recipe_id: int, comment_id: int, user_id: int):
+    comment_exists = db.query(RecipeComment.id).filter(
+        RecipeComment.id == comment_id,
+        RecipeComment.recipe_id == recipe_id,
+    ).first()
+    if comment_exists is None:
+        return None
+
+    like = db.query(CommentLike).filter(
+        CommentLike.comment_id == comment_id,
+        CommentLike.user_id == user_id,
+    ).first()
+    if like is not None:
+        db.delete(like)
+        db.commit()
+    return {"comment_id": comment_id}
 
 
 def is_comment_owner(db: Session, comment_id: int, user_id: int):
@@ -575,5 +636,15 @@ def _attach_comment_authors(db: Session, recipes: list[Recipe]):
         return
     rows = db.query(CommentAuthor.comment_id, User.username).join(User, User.id == CommentAuthor.user_id).filter(CommentAuthor.comment_id.in_(comment_ids)).all()
     authors = {comment_id: username for comment_id, username in rows}
+    like_rows = db.query(
+        CommentLike.comment_id,
+        func.count(CommentLike.user_id),
+    ).filter(
+        CommentLike.comment_id.in_(comment_ids)
+    ).group_by(
+        CommentLike.comment_id
+    ).all()
+    like_counts = {comment_id: int(count) for comment_id, count in like_rows}
     for comment in comments:
         comment.created_by_username = authors.get(comment.id)
+        comment.like_count = like_counts.get(comment.id, 0)

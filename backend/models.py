@@ -35,6 +35,13 @@ class CommentAuthor(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
 
 
+class CommentLike(Base):
+    __tablename__ = "comment_likes"
+    comment_id = Column(Integer, ForeignKey("recipe_comments.id"), primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), primary_key=True, index=True)
+    created_at = Column(TIMESTAMP, server_default=func.now())
+
+
 class RecipeFavorite(Base):
     __tablename__ = "recipe_favorites"
     recipe_id = Column(Integer, ForeignKey("recipes.id"), primary_key=True, index=True)

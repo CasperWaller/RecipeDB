@@ -61,6 +61,7 @@ class Comment(CommentBase):
     recipe_id: int
     created_at: Optional[datetime] = None
     created_by_username: Optional[str] = None
+    like_count: int = 0
     model_config = ConfigDict(from_attributes=True)
 
 # Recipe schemas
@@ -98,6 +99,14 @@ class RecipeFavorite(BaseModel):
 
 class RecipeFavoriteList(BaseModel):
     recipe_ids: List[int] = Field(default_factory=list)
+
+
+class CommentLike(BaseModel):
+    comment_id: int
+
+
+class CommentLikeList(BaseModel):
+    comment_ids: List[int] = Field(default_factory=list)
 
 
 class OnlineDevicesResponse(BaseModel):

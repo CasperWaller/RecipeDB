@@ -223,6 +223,8 @@ export default function App() {
   const [commentText, setCommentText] = useState("");
   const [commentSaving, setCommentSaving] = useState(false);
   const [commentDeletingId, setCommentDeletingId] = useState(null);
+  const [commentLikingId, setCommentLikingId] = useState(null);
+  const [likedCommentIds, setLikedCommentIds] = useState([]);
   const [pdfExporting, setPdfExporting] = useState(false);
   const [createIngredientFocusIndex, setCreateIngredientFocusIndex] = useState(null);
   const [editIngredientFocusIndex, setEditIngredientFocusIndex] = useState(null);
@@ -240,6 +242,7 @@ export default function App() {
   );
   const favoriteRecipeIdSet = useMemo(() => new Set(favoriteRecipeIds), [favoriteRecipeIds]);
   const favoriteSavingRecipeIdSet = useMemo(() => new Set(favoriteSavingRecipeIds), [favoriteSavingRecipeIds]);
+  const likedCommentIdSet = useMemo(() => new Set(likedCommentIds), [likedCommentIds]);
 
   const sortedRecipes = useMemo(() => {
     const items = [...recipes];
@@ -331,6 +334,7 @@ export default function App() {
       if (!token) {
         setCurrentUser(null);
         setFavoriteRecipeIds([]);
+        setLikedCommentIds([]);
         return;
       }
 
@@ -343,6 +347,7 @@ export default function App() {
           setToken("");
           setCurrentUser(null);
           setFavoriteRecipeIds([]);
+          setLikedCommentIds([]);
           return;
         }
         const user = await response.json();
@@ -351,6 +356,7 @@ export default function App() {
       } catch {
         setCurrentUser(null);
         setFavoriteRecipeIds([]);
+        setLikedCommentIds([]);
       }
     }
 
@@ -373,6 +379,14 @@ export default function App() {
       setSelectedRecipeId(visibleRecipes[0].id);
     }
   }, [showOnlyFavorites, visibleRecipes, selectedRecipeId, favoriteRecipeIdSet]);
+
+  useEffect(() => {
+    if (!selectedRecipeId || !token) {
+      setLikedCommentIds([]);
+      return;
+    }
+    loadCommentLikes(selectedRecipeId, token);
+  }, [selectedRecipeId, token]);
 
   useEffect(() => {
     localStorage.setItem(SORT_STORAGE_KEY, sortBy);
@@ -507,6 +521,26 @@ export default function App() {
       setFavoriteRecipeIds(Array.isArray(data?.recipe_ids) ? data.recipe_ids : []);
     } catch {
       setFavoriteRecipeIds([]);
+    }
+  }
+
+  async function loadCommentLikes(recipeId, activeToken = token) {
+    if (!activeToken || !recipeId) {
+      setLikedCommentIds([]);
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE}/recipes/${recipeId}/comment-likes`, {
+        headers: { Authorization: `Bearer ${activeToken}` },
+      });
+      if (!response.ok) {
+        throw new Error(await getApiErrorMessage(response, "Failed to load comment likes"));
+      }
+      const data = await response.json();
+      setLikedCommentIds(Array.isArray(data?.comment_ids) ? data.comment_ids : []);
+    } catch {
+      setLikedCommentIds([]);
     }
   }
 
@@ -760,12 +794,72 @@ export default function App() {
         throw new Error(await getApiErrorMessage(response, "Failed to delete comment"));
       }
 
+      setLikedCommentIds((previous) => previous.filter((id) => id !== commentId));
       setSuccessMessage("Comment removed");
       await loadRecipes();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to delete comment");
     } finally {
       setCommentDeletingId(null);
+    }
+  }
+
+  async function handleToggleCommentLike(commentId) {
+    if (!selectedRecipeId) {
+      return;
+    }
+    if (!token) {
+      setError("Please log in to like comments");
+      return;
+    }
+    if (commentLikingId === commentId) {
+      return;
+    }
+
+    const isLiked = likedCommentIdSet.has(commentId);
+    setCommentLikingId(commentId);
+    setError("");
+    setSuccessMessage("");
+
+    try {
+      const response = await fetch(`${API_BASE}/recipes/${selectedRecipeId}/comments/${commentId}/like`, {
+        method: isLiked ? "DELETE" : "POST",
+        headers: getAuthHeaders(),
+      });
+
+      if (!response.ok) {
+        throw new Error(await getApiErrorMessage(response, "Failed to update comment like"));
+      }
+
+      setLikedCommentIds((previous) => {
+        if (isLiked) {
+          return previous.filter((id) => id !== commentId);
+        }
+        if (previous.includes(commentId)) {
+          return previous;
+        }
+        return [...previous, commentId];
+      });
+
+      setRecipes((previous) =>
+        previous.map((recipe) => ({
+          ...recipe,
+          comments: (recipe.comments || []).map((comment) => {
+            if (comment.id !== commentId) {
+              return comment;
+            }
+            const currentCount = Number(comment.like_count || 0);
+            return {
+              ...comment,
+              like_count: isLiked ? Math.max(0, currentCount - 1) : currentCount + 1,
+            };
+          }),
+        }))
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update comment like");
+    } finally {
+      setCommentLikingId(null);
     }
   }
 
@@ -1774,17 +1868,34 @@ export default function App() {
                                       {new Date(comment.created_at).toLocaleString()} · by {comment.created_by_username || "Unknown user"}
                                     </p>
                                   ) : null}
+                                  <p className="mt-1 text-xs text-slate-500">{comment.like_count ?? 0} likes</p>
                                 </div>
-                                {currentUser && comment.created_by_username === currentUser.username ? (
-                                  <button
-                                    type="button"
-                                    onClick={() => handleDeleteComment(comment.id)}
-                                    disabled={commentDeletingId === comment.id}
-                                    className="rounded-md border border-rose-200 px-2 py-1 text-xs font-medium text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
-                                  >
-                                    {commentDeletingId === comment.id ? "Removing..." : "Remove"}
-                                  </button>
-                                ) : null}
+                                <div className="flex flex-col items-end gap-1">
+                                  {currentUser ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleToggleCommentLike(comment.id)}
+                                      disabled={commentLikingId === comment.id}
+                                      className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+                                    >
+                                      {commentLikingId === comment.id
+                                        ? "Saving..."
+                                        : likedCommentIdSet.has(comment.id)
+                                        ? "♥ Liked"
+                                        : "♡ Like"}
+                                    </button>
+                                  ) : null}
+                                  {currentUser && comment.created_by_username === currentUser.username ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeleteComment(comment.id)}
+                                      disabled={commentDeletingId === comment.id}
+                                      className="rounded-md border border-rose-200 px-2 py-1 text-xs font-medium text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
+                                    >
+                                      {commentDeletingId === comment.id ? "Removing..." : "Remove"}
+                                    </button>
+                                  ) : null}
+                                </div>
                               </div>
                             </li>
                           ))}
