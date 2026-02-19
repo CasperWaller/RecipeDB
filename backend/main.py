@@ -207,6 +207,12 @@ def require_admin(current_user: models.User = Depends(get_current_user)):
     return current_user
 
 
+def require_super_admin(current_user: models.User = Depends(get_current_user)):
+    if not current_user.is_super_admin:
+        raise HTTPException(status_code=403, detail="Super admin privileges are required")
+    return current_user
+
+
 @app.get("/")
 def root():
     return {"message": "Recipe API is running"}
@@ -269,6 +275,32 @@ def login(payload: schemas.UserLogin, db: Session = Depends(get_db)):
 @app.get("/auth/me", response_model=schemas.UserPublic)
 def me(current_user: models.User = Depends(get_current_user)):
     return current_user
+
+
+@app.get("/admin/users", response_model=list[schemas.UserPublic])
+def list_users(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(require_super_admin),
+):
+    _ = current_user
+    return crud.get_users(db)
+
+
+@app.put("/admin/users/{user_id}/role", response_model=schemas.UserPublic)
+def update_user_role(
+    user_id: int,
+    payload: schemas.UserRoleUpdate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(require_super_admin),
+):
+    _ = current_user
+    try:
+        updated = crud.update_user_role(db, user_id=user_id, role=payload.role)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if updated is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    return updated
 
 
 # Recipe

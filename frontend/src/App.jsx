@@ -232,6 +232,10 @@ export default function App() {
   const [editingIngredientName, setEditingIngredientName] = useState("");
   const [ingredientUpdatingId, setIngredientUpdatingId] = useState(null);
   const [ingredientDeletingId, setIngredientDeletingId] = useState(null);
+  const [managedUsers, setManagedUsers] = useState([]);
+  const [roleSelections, setRoleSelections] = useState({});
+  const [usersLoading, setUsersLoading] = useState(false);
+  const [roleSavingUserId, setRoleSavingUserId] = useState(null);
   const [pdfExporting, setPdfExporting] = useState(false);
   const [createIngredientFocusIndex, setCreateIngredientFocusIndex] = useState(null);
   const [editIngredientFocusIndex, setEditIngredientFocusIndex] = useState(null);
@@ -364,6 +368,8 @@ export default function App() {
         setCurrentUser(null);
         setFavoriteRecipeIds([]);
         setLikedCommentIds([]);
+        setManagedUsers([]);
+        setRoleSelections({});
         return;
       }
 
@@ -377,6 +383,8 @@ export default function App() {
           setCurrentUser(null);
           setFavoriteRecipeIds([]);
           setLikedCommentIds([]);
+          setManagedUsers([]);
+          setRoleSelections({});
           return;
         }
         const user = await response.json();
@@ -386,11 +394,22 @@ export default function App() {
         setCurrentUser(null);
         setFavoriteRecipeIds([]);
         setLikedCommentIds([]);
+        setManagedUsers([]);
+        setRoleSelections({});
       }
     }
 
     loadCurrentUser();
   }, [token]);
+
+  useEffect(() => {
+    if (!token || !isSuperAdmin) {
+      setManagedUsers([]);
+      setRoleSelections({});
+      return;
+    }
+    loadManagedUsers(token);
+  }, [token, isSuperAdmin]);
 
   useEffect(() => {
     setEditMode(false);
@@ -565,6 +584,89 @@ export default function App() {
       setIngredientsCatalog(items);
     } catch {
       setIngredientsCatalog([]);
+    }
+  }
+
+  function getRoleFromUser(user) {
+    if (user?.is_super_admin) {
+      return "super_admin";
+    }
+    if (user?.is_admin) {
+      return "admin";
+    }
+    return "user";
+  }
+
+  async function loadManagedUsers(activeToken = token) {
+    if (!activeToken) {
+      setManagedUsers([]);
+      setRoleSelections({});
+      return;
+    }
+
+    setUsersLoading(true);
+    try {
+      const response = await fetch(`${API_BASE}/admin/users`, {
+        headers: { Authorization: `Bearer ${activeToken}` },
+      });
+      if (!response.ok) {
+        throw new Error(await getApiErrorMessage(response, "Failed to load users"));
+      }
+      const data = await response.json();
+      const users = Array.isArray(data) ? data : [];
+      setManagedUsers(users);
+      const nextSelections = {};
+      users.forEach((user) => {
+        nextSelections[user.id] = getRoleFromUser(user);
+      });
+      setRoleSelections(nextSelections);
+    } catch {
+      setManagedUsers([]);
+      setRoleSelections({});
+    } finally {
+      setUsersLoading(false);
+    }
+  }
+
+  async function handleSaveUserRole(user) {
+    if (!token) {
+      setError("Please log in to manage roles");
+      return;
+    }
+    if (!isSuperAdmin) {
+      setError("Only super admins can manage roles");
+      return;
+    }
+
+    const selectedRole = roleSelections[user.id] || getRoleFromUser(user);
+    const currentRole = getRoleFromUser(user);
+    if (selectedRole === currentRole) {
+      return;
+    }
+
+    setRoleSavingUserId(user.id);
+    setError("");
+    setSuccessMessage("");
+    try {
+      const response = await fetch(`${API_BASE}/admin/users/${user.id}/role`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        body: JSON.stringify({ role: selectedRole }),
+      });
+      if (!response.ok) {
+        throw new Error(await getApiErrorMessage(response, "Failed to update role"));
+      }
+      const updatedUser = await response.json();
+      setManagedUsers((previous) => previous.map((item) => (item.id === updatedUser.id ? updatedUser : item)));
+      setRoleSelections((previous) => ({ ...previous, [updatedUser.id]: getRoleFromUser(updatedUser) }));
+      if (currentUser && updatedUser.id === currentUser.id) {
+        setCurrentUser(updatedUser);
+      }
+      setSuccessMessage("User role updated");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update role");
+    } finally {
+      setRoleSavingUserId(null);
     }
   }
 
@@ -1480,6 +1582,64 @@ export default function App() {
             </form>
           )}
         </section>
+
+        {isSuperAdmin ? (
+          <section className="mb-6 rounded-2xl border border-slate-200 bg-white p-4">
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-base font-semibold text-slate-900">Role Management</h2>
+              <button
+                type="button"
+                onClick={() => loadManagedUsers()}
+                disabled={usersLoading}
+                className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {usersLoading ? "Loading..." : "Refresh"}
+              </button>
+            </div>
+
+            {managedUsers.length === 0 ? (
+              <p className="text-sm text-slate-500">No users found.</p>
+            ) : (
+              <ul className="space-y-2">
+                {managedUsers.map((user) => {
+                  const selectedRole = roleSelections[user.id] || getRoleFromUser(user);
+                  const unchanged = selectedRole === getRoleFromUser(user);
+                  return (
+                    <li key={user.id} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <p className="text-sm text-slate-700">{user.username}</p>
+                        <div className="flex items-center gap-2">
+                          <select
+                            value={selectedRole}
+                            onChange={(event) =>
+                              setRoleSelections((previous) => ({
+                                ...previous,
+                                [user.id]: event.target.value,
+                              }))
+                            }
+                            className="rounded-lg border border-slate-300 px-2 py-1 text-xs text-slate-700 outline-none focus:border-slate-400"
+                          >
+                            <option value="user">User</option>
+                            <option value="admin">Admin</option>
+                            <option value="super_admin">Super Admin</option>
+                          </select>
+                          <button
+                            type="button"
+                            onClick={() => handleSaveUserRole(user)}
+                            disabled={roleSavingUserId === user.id || unchanged}
+                            className="rounded-lg border border-slate-300 px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {roleSavingUserId === user.id ? "Saving..." : "Save"}
+                          </button>
+                        </div>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </section>
+        ) : null}
 
         <div className="mb-6 grid gap-4 sm:grid-cols-4">
           <div className="rounded-xl border border-slate-200 bg-white p-4">

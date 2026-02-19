@@ -71,6 +71,39 @@ def register_user(db: Session, username: str, password: str):
     return user
 
 
+def get_users(db: Session):
+    return db.query(User).order_by(func.lower(User.username)).all()
+
+
+def update_user_role(db: Session, user_id: int, role: str):
+    user = db.query(User).filter(User.id == user_id).first()
+    if user is None:
+        return None
+
+    normalized_role = (role or "").strip().lower()
+    if normalized_role not in {"user", "admin", "super_admin"}:
+        raise ValueError("Invalid role")
+
+    if user.is_super_admin and normalized_role != "super_admin":
+        super_admin_count = db.query(User.id).filter(User.is_super_admin.is_(True)).count()
+        if super_admin_count <= 1:
+            raise ValueError("At least one super admin is required")
+
+    if normalized_role == "super_admin":
+        user.is_super_admin = True
+        user.is_admin = True
+    elif normalized_role == "admin":
+        user.is_super_admin = False
+        user.is_admin = True
+    else:
+        user.is_super_admin = False
+        user.is_admin = False
+
+    db.commit()
+    db.refresh(user)
+    return user
+
+
 def login_user(db: Session, username: str, password: str):
     user = get_user_by_username(db, username)
     if not user:

@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field, ConfigDict
-from typing import Optional, List
+from typing import Optional, List, Literal
 from datetime import datetime
 
 
@@ -19,6 +19,10 @@ class UserPublic(BaseModel):
     is_admin: bool
     is_super_admin: bool
     model_config = ConfigDict(from_attributes=True)
+
+
+class UserRoleUpdate(BaseModel):
+    role: Literal["user", "admin", "super_admin"]
 
 
 class AuthTokenResponse(BaseModel):
