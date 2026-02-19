@@ -1469,17 +1469,25 @@ export default function App() {
                 <div className="space-y-2">
                   {ingredientRows.map((row, index) => (
                     <div key={`create-ingredient-${index}`} className="grid grid-cols-12 gap-2">
-                      <input
+                      <select
                         id={`create-ingredient-name-${index}`}
-                        type="text"
                         value={row.name}
                         onChange={(event) => {
                           updateIngredientRow(setIngredientRows, index, "name", event.target.value);
                           setCreateValidationErrors((previous) => ({ ...previous, ingredients: "" }));
                         }}
-                        placeholder="Ingredient"
                         className="col-span-5 rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-0 focus:border-slate-400"
-                      />
+                      >
+                        <option value="">Select ingredient</option>
+                        {!ingredientsCatalog.some((item) => item.name === row.name) && row.name ? (
+                          <option value={row.name}>{toTitleCase(row.name)}</option>
+                        ) : null}
+                        {ingredientsCatalog.map((item) => (
+                          <option key={`create-ingredient-option-${item.id}`} value={item.name}>
+                            {toTitleCase(item.name)}
+                          </option>
+                        ))}
+                      </select>
                       <input
                         type="text"
                         value={row.quantity}
@@ -1861,17 +1869,25 @@ export default function App() {
                           <div className="space-y-2">
                             {editIngredientRows.map((row, index) => (
                               <div key={`edit-ingredient-${index}`} className="grid grid-cols-12 gap-2">
-                                <input
+                                <select
                                   id={`edit-ingredient-name-${index}`}
-                                  type="text"
                                   value={row.name}
                                   onChange={(event) => {
                                     updateIngredientRow(setEditIngredientRows, index, "name", event.target.value);
                                     setEditValidationErrors((previous) => ({ ...previous, ingredients: "" }));
                                   }}
-                                  placeholder="Ingredient"
                                   className="col-span-5 rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-0 focus:border-slate-400"
-                                />
+                                >
+                                  <option value="">Select ingredient</option>
+                                  {!ingredientsCatalog.some((item) => item.name === row.name) && row.name ? (
+                                    <option value={row.name}>{toTitleCase(row.name)}</option>
+                                  ) : null}
+                                  {ingredientsCatalog.map((item) => (
+                                    <option key={`edit-ingredient-option-${item.id}`} value={item.name}>
+                                      {toTitleCase(item.name)}
+                                    </option>
+                                  ))}
+                                </select>
                                 <input
                                   type="text"
                                   value={row.quantity}
