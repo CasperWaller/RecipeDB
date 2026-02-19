@@ -88,6 +88,7 @@ class Recipe(RecipeBase):
     tags: List[Tag] = Field(default_factory=list)
     comments: List[Comment] = Field(default_factory=list)
     created_by_username: Optional[str] = None
+    favorite_count: int = 0
     model_config = ConfigDict(from_attributes=True)
 
 

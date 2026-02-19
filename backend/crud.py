@@ -67,6 +67,7 @@ def get_recipes(db: Session):
         selectinload(Recipe.comments)
     ).all()
     _attach_recipe_authors(db, recipes)
+    _attach_favorite_counts(db, recipes)
     _attach_ingredient_measurements(db, recipes)
     _attach_comment_authors(db, recipes)
     return recipes
@@ -79,6 +80,7 @@ def get_recipe(db: Session, recipe_id: int):
     ).filter(Recipe.id == recipe_id).first()
     if recipe:
         _attach_recipe_authors(db, [recipe])
+        _attach_favorite_counts(db, [recipe])
         _attach_ingredient_measurements(db, [recipe])
         _attach_comment_authors(db, [recipe])
     return recipe
@@ -119,6 +121,7 @@ def create_recipe(db: Session, recipe: RecipeCreate, user_id: int):
     db.commit()
     db.refresh(db_recipe)
     _attach_recipe_authors(db, [db_recipe])
+    _attach_favorite_counts(db, [db_recipe])
     _attach_ingredient_measurements(db, [db_recipe])
     _attach_comment_authors(db, [db_recipe])
     return db_recipe
@@ -167,6 +170,7 @@ def update_recipe(db: Session, recipe_id: int, recipe: RecipeCreate):
     db.commit()
     db.refresh(db_recipe)
     _attach_recipe_authors(db, [db_recipe])
+    _attach_favorite_counts(db, [db_recipe])
     _attach_ingredient_measurements(db, [db_recipe])
     _attach_comment_authors(db, [db_recipe])
     return db_recipe
@@ -322,6 +326,7 @@ def search_recipes(db: Session, query: str, scope: str = "all"):
 
     def _with_authors(results: list[Recipe]):
         _attach_recipe_authors(db, results)
+        _attach_favorite_counts(db, results)
         _attach_ingredient_measurements(db, results)
         _attach_comment_authors(db, results)
         return results
@@ -435,6 +440,25 @@ def _attach_recipe_authors(db: Session, recipes: list[Recipe]):
     authors = {recipe_id: username for recipe_id, username in rows}
     for recipe in recipes:
         recipe.created_by_username = authors.get(recipe.id)
+
+
+def _attach_favorite_counts(db: Session, recipes: list[Recipe]):
+    recipe_ids = [recipe.id for recipe in recipes]
+    if not recipe_ids:
+        return
+
+    rows = db.query(
+        RecipeFavorite.recipe_id,
+        func.count(RecipeFavorite.user_id),
+    ).filter(
+        RecipeFavorite.recipe_id.in_(recipe_ids)
+    ).group_by(
+        RecipeFavorite.recipe_id
+    ).all()
+
+    counts = {recipe_id: int(count) for recipe_id, count in rows}
+    for recipe in recipes:
+        recipe.favorite_count = counts.get(recipe.id, 0)
 
 
 def _attach_ingredient_measurements(db: Session, recipes: list[Recipe]):

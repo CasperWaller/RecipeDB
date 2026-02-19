@@ -198,6 +198,7 @@ export default function App() {
   const [pdfExporting, setPdfExporting] = useState(false);
   const [createIngredientFocusIndex, setCreateIngredientFocusIndex] = useState(null);
   const [editIngredientFocusIndex, setEditIngredientFocusIndex] = useState(null);
+  const [showOnlyFavorites, setShowOnlyFavorites] = useState(false);
   const [sortBy, setSortBy] = useState(() => {
     const saved = localStorage.getItem(SORT_STORAGE_KEY) || "newest";
     return allowedSortModes.has(saved) ? saved : "newest";
@@ -225,6 +226,13 @@ export default function App() {
     }
     return items.sort((a, b) => b.id - a.id);
   }, [recipes, sortBy]);
+
+  const visibleRecipes = useMemo(() => {
+    if (!showOnlyFavorites) {
+      return sortedRecipes;
+    }
+    return sortedRecipes.filter((recipe) => favoriteRecipeIdSet.has(recipe.id));
+  }, [showOnlyFavorites, sortedRecipes, favoriteRecipeIdSet]);
 
   const selectedIngredientQuantities = useMemo(() => {
     const lookup = new Map();
@@ -314,6 +322,19 @@ export default function App() {
   useEffect(() => {
     setEditMode(false);
   }, [selectedRecipeId]);
+
+  useEffect(() => {
+    if (!showOnlyFavorites) {
+      return;
+    }
+    if (visibleRecipes.length === 0) {
+      setSelectedRecipeId(null);
+      return;
+    }
+    if (!selectedRecipeId || !favoriteRecipeIdSet.has(selectedRecipeId)) {
+      setSelectedRecipeId(visibleRecipes[0].id);
+    }
+  }, [showOnlyFavorites, visibleRecipes, selectedRecipeId, favoriteRecipeIdSet]);
 
   useEffect(() => {
     localStorage.setItem(SORT_STORAGE_KEY, sortBy);
@@ -1306,6 +1327,14 @@ export default function App() {
               >
                 Clear
               </button>
+              <button
+                type="button"
+                onClick={() => setShowOnlyFavorites((previous) => !previous)}
+                disabled={!currentUser}
+                className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {showOnlyFavorites ? "Showing Favorites" : "Only Favorites"}
+              </button>
             </div>
 
             {error ? (
@@ -1322,15 +1351,17 @@ export default function App() {
               </div>
             ) : null}
 
-            {!loading && recipes.length === 0 ? (
+            {!loading && visibleRecipes.length === 0 ? (
               <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-6 text-center text-slate-500">
-                {searchQuery.trim()
+                {showOnlyFavorites
+                  ? "No favorite recipes yet. Mark recipes with ☆ Favorite first."
+                  : searchQuery.trim()
                   ? "No recipes match your search. Try another keyword or scope."
                   : "No recipes yet. Add your first recipe from the form."}
               </div>
             ) : null}
 
-            {recipes.length > 0 ? (
+            {visibleRecipes.length > 0 ? (
               <>
                 {selectedRecipe ? (
                   <div className="mb-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
@@ -1340,6 +1371,7 @@ export default function App() {
                         <p className="mt-1 text-xs text-slate-500">
                           Created by {selectedRecipe.created_by_username || "Unknown user"}
                         </p>
+                        <p className="mt-1 text-xs text-slate-500">Favorited by {selectedRecipe.favorite_count ?? 0} users</p>
                       </div>
                       <div className="flex flex-col items-end gap-2">
                         <div className="flex flex-wrap justify-end gap-2">
@@ -1647,7 +1679,7 @@ export default function App() {
 
                 <p className="mb-2 text-xs uppercase tracking-wide text-slate-500">Tap a recipe for details</p>
                 <ul className="space-y-3">
-                {sortedRecipes.map((recipe) => (
+                {visibleRecipes.map((recipe) => (
                   <li key={recipe.id}>
                     <button
                       type="button"
@@ -1664,7 +1696,7 @@ export default function App() {
                       ) : null}
                       <p className="mt-1 text-xs text-slate-500">By {recipe.created_by_username || "Unknown user"}</p>
                       <p className="mt-1 text-sm text-slate-600">
-                        {(recipe.ingredients || []).length} ingredients · {(recipe.tags || []).length} tags
+                        {(recipe.ingredients || []).length} ingredients · {(recipe.tags || []).length} tags · {recipe.favorite_count ?? 0} favorites
                       </p>
                     </button>
                   </li>
