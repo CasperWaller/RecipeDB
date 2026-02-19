@@ -429,6 +429,18 @@ export default function App() {
         }
         return [...previous, recipeId];
       });
+      setRecipes((previous) =>
+        previous.map((recipe) => {
+          if (recipe.id !== recipeId) {
+            return recipe;
+          }
+          const currentCount = Number(recipe.favorite_count || 0);
+          return {
+            ...recipe,
+            favorite_count: isCurrentlyFavorite ? Math.max(0, currentCount - 1) : currentCount + 1,
+          };
+        })
+      );
       setSuccessMessage(isCurrentlyFavorite ? "Removed from favorites" : "Added to favorites");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update favorite");
