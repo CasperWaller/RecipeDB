@@ -380,6 +380,33 @@ export default function App() {
     });
   }
 
+  function moveIngredientRow(setter, fromIndex, toIndex, setFocusIndex) {
+    setter((previous) => {
+      if (toIndex < 0 || toIndex >= previous.length || fromIndex === toIndex) {
+        return previous;
+      }
+      const nextRows = [...previous];
+      const [movedRow] = nextRows.splice(fromIndex, 1);
+      nextRows.splice(toIndex, 0, movedRow);
+      if (setFocusIndex) {
+        setFocusIndex(toIndex);
+      }
+      return nextRows;
+    });
+  }
+
+  function clearCreateDraft() {
+    setTitle("");
+    setDescription("");
+    setPrepTime("");
+    setCookTime("");
+    setIngredientRows([createEmptyIngredientRow()]);
+    setTagsText("");
+    setCreateValidationErrors({});
+    localStorage.removeItem(CREATE_DRAFT_STORAGE_KEY);
+    setSuccessMessage("Draft cleared");
+  }
+
   useEffect(() => {
     if (createIngredientFocusIndex == null) {
       return;
@@ -1030,7 +1057,7 @@ export default function App() {
                           setCreateValidationErrors((previous) => ({ ...previous, ingredients: "" }));
                         }}
                         placeholder="Ingredient"
-                        className="col-span-6 rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-0 focus:border-slate-400"
+                        className="col-span-5 rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-0 focus:border-slate-400"
                       />
                       <input
                         type="text"
@@ -1054,13 +1081,31 @@ export default function App() {
                         placeholder="Quantity (e.g. 2 dl)"
                         className="col-span-5 rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-0 focus:border-slate-400"
                       />
-                      <button
-                        type="button"
-                        onClick={() => removeIngredientRow(setIngredientRows, index)}
-                        className="col-span-1 inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-300 text-sm font-medium text-slate-700 hover:bg-slate-100"
-                      >
-                        −
-                      </button>
+                      <div className="col-span-2 flex items-center justify-end gap-1">
+                        <button
+                          type="button"
+                          onClick={() => moveIngredientRow(setIngredientRows, index, index - 1, setCreateIngredientFocusIndex)}
+                          disabled={index === 0}
+                          className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-300 text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          ↑
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => moveIngredientRow(setIngredientRows, index, index + 1, setCreateIngredientFocusIndex)}
+                          disabled={index === ingredientRows.length - 1}
+                          className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-300 text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          ↓
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => removeIngredientRow(setIngredientRows, index)}
+                          className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-300 text-sm font-medium text-slate-700 hover:bg-slate-100"
+                        >
+                          −
+                        </button>
+                      </div>
                     </div>
                   ))}
                   <button
@@ -1149,6 +1194,13 @@ export default function App() {
                   className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   Refresh
+                </button>
+                <button
+                  type="button"
+                  onClick={clearCreateDraft}
+                  className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
+                >
+                  Clear Draft
                 </button>
               </div>
             </form>
@@ -1365,7 +1417,7 @@ export default function App() {
                                     setEditValidationErrors((previous) => ({ ...previous, ingredients: "" }));
                                   }}
                                   placeholder="Ingredient"
-                                  className="col-span-6 rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-0 focus:border-slate-400"
+                                  className="col-span-5 rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-0 focus:border-slate-400"
                                 />
                                 <input
                                   type="text"
@@ -1389,13 +1441,31 @@ export default function App() {
                                   placeholder="Quantity (e.g. 2 dl)"
                                   className="col-span-5 rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-0 focus:border-slate-400"
                                 />
-                                <button
-                                  type="button"
-                                  onClick={() => removeIngredientRow(setEditIngredientRows, index)}
-                                  className="col-span-1 inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-300 text-sm font-medium text-slate-700 hover:bg-slate-100"
-                                >
-                                  −
-                                </button>
+                                <div className="col-span-2 flex items-center justify-end gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => moveIngredientRow(setEditIngredientRows, index, index - 1, setEditIngredientFocusIndex)}
+                                    disabled={index === 0}
+                                    className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-300 text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+                                  >
+                                    ↑
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => moveIngredientRow(setEditIngredientRows, index, index + 1, setEditIngredientFocusIndex)}
+                                    disabled={index === editIngredientRows.length - 1}
+                                    className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-300 text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+                                  >
+                                    ↓
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => removeIngredientRow(setEditIngredientRows, index)}
+                                    className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-300 text-sm font-medium text-slate-700 hover:bg-slate-100"
+                                  >
+                                    −
+                                  </button>
+                                </div>
                               </div>
                             ))}
                             <button
