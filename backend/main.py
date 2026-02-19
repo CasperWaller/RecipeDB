@@ -177,6 +177,36 @@ def delete_recipe(
     return recipe
 
 
+@app.get("/recipes/favorites", response_model=schemas.RecipeFavoriteList)
+def read_favorites(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    recipe_ids = crud.get_favorite_recipe_ids(db, user_id=current_user.id)
+    return {"recipe_ids": recipe_ids}
+
+
+@app.post("/recipes/{recipe_id}/favorite", response_model=schemas.RecipeFavorite)
+def add_favorite(
+    recipe_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    favorite = crud.add_recipe_favorite(db, recipe_id=recipe_id, user_id=current_user.id)
+    if favorite is None:
+        raise HTTPException(status_code=404, detail="Recipe not found")
+    return favorite
+
+
+@app.delete("/recipes/{recipe_id}/favorite", response_model=schemas.RecipeFavorite)
+def remove_favorite(
+    recipe_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    return crud.remove_recipe_favorite(db, recipe_id=recipe_id, user_id=current_user.id)
+
+
 @app.put("/recipes/{recipe_id}", response_model=schemas.Recipe)
 def update_recipe(
     recipe_id: int,

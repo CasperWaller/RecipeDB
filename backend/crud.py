@@ -3,7 +3,7 @@ from sqlalchemy import or_, and_, func
 import re
 import secrets
 import hashlib
-from .models import Recipe, Ingredient, Tag, RecipeComment, User, AuthToken, RecipeAuthor, CommentAuthor, RecipeIngredient
+from .models import Recipe, Ingredient, Tag, RecipeComment, User, AuthToken, RecipeAuthor, CommentAuthor, RecipeIngredient, RecipeFavorite
 from .schemas import RecipeCreate, IngredientCreate, TagCreate, CommentCreate
 
 
@@ -177,10 +177,45 @@ def delete_recipe(db: Session, recipe_id: int):
         comment_ids = [comment.id for comment in db_recipe.comments]
         if comment_ids:
             db.query(CommentAuthor).filter(CommentAuthor.comment_id.in_(comment_ids)).delete(synchronize_session=False)
+        db.query(RecipeFavorite).filter(RecipeFavorite.recipe_id == recipe_id).delete(synchronize_session=False)
         db.query(RecipeAuthor).filter(RecipeAuthor.recipe_id == recipe_id).delete(synchronize_session=False)
         db.delete(db_recipe)
         db.commit()
     return db_recipe
+
+
+def get_favorite_recipe_ids(db: Session, user_id: int):
+    rows = db.query(RecipeFavorite.recipe_id).filter(RecipeFavorite.user_id == user_id).all()
+    return [recipe_id for (recipe_id,) in rows]
+
+
+def add_recipe_favorite(db: Session, recipe_id: int, user_id: int):
+    recipe_exists = db.query(Recipe.id).filter(Recipe.id == recipe_id).first()
+    if recipe_exists is None:
+        return None
+
+    existing = db.query(RecipeFavorite).filter(
+        RecipeFavorite.recipe_id == recipe_id,
+        RecipeFavorite.user_id == user_id,
+    ).first()
+    if existing is None:
+        db.add(RecipeFavorite(recipe_id=recipe_id, user_id=user_id))
+        db.commit()
+
+    return {"recipe_id": recipe_id}
+
+
+def remove_recipe_favorite(db: Session, recipe_id: int, user_id: int):
+    favorite = db.query(RecipeFavorite).filter(
+        RecipeFavorite.recipe_id == recipe_id,
+        RecipeFavorite.user_id == user_id,
+    ).first()
+    if favorite is None:
+        return {"recipe_id": recipe_id}
+
+    db.delete(favorite)
+    db.commit()
+    return {"recipe_id": recipe_id}
 
 
 def is_recipe_owner(db: Session, recipe_id: int, user_id: int):

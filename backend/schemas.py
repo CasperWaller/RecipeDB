@@ -89,3 +89,11 @@ class Recipe(RecipeBase):
     comments: List[Comment] = Field(default_factory=list)
     created_by_username: Optional[str] = None
     model_config = ConfigDict(from_attributes=True)
+
+
+class RecipeFavorite(BaseModel):
+    recipe_id: int
+
+
+class RecipeFavoriteList(BaseModel):
+    recipe_ids: List[int] = Field(default_factory=list)

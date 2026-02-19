@@ -189,6 +189,7 @@ export default function App() {
   const [authSaving, setAuthSaving] = useState(false);
   const [token, setToken] = useState(localStorage.getItem("auth_token") || "");
   const [currentUser, setCurrentUser] = useState(null);
+  const [favoriteRecipeIds, setFavoriteRecipeIds] = useState([]);
   const [saving, setSaving] = useState(false);
   const [recipeDeleting, setRecipeDeleting] = useState(false);
   const [commentText, setCommentText] = useState("");
@@ -208,6 +209,7 @@ export default function App() {
   const canEditSelectedRecipe = Boolean(
     selectedRecipe && currentUser && (isAdmin || selectedRecipe.created_by_username === currentUser.username)
   );
+  const favoriteRecipeIdSet = useMemo(() => new Set(favoriteRecipeIds), [favoriteRecipeIds]);
 
   const sortedRecipes = useMemo(() => {
     const items = [...recipes];
@@ -282,6 +284,7 @@ export default function App() {
     async function loadCurrentUser() {
       if (!token) {
         setCurrentUser(null);
+        setFavoriteRecipeIds([]);
         return;
       }
 
@@ -293,12 +296,15 @@ export default function App() {
           localStorage.removeItem("auth_token");
           setToken("");
           setCurrentUser(null);
+          setFavoriteRecipeIds([]);
           return;
         }
         const user = await response.json();
         setCurrentUser(user);
+        await loadFavorites(token);
       } catch {
         setCurrentUser(null);
+        setFavoriteRecipeIds([]);
       }
     }
 
@@ -353,6 +359,59 @@ export default function App() {
 
   function getAuthHeaders() {
     return token ? { Authorization: `Bearer ${token}` } : {};
+  }
+
+  async function loadFavorites(activeToken = token) {
+    if (!activeToken) {
+      setFavoriteRecipeIds([]);
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE}/recipes/favorites`, {
+        headers: { Authorization: `Bearer ${activeToken}` },
+      });
+      if (!response.ok) {
+        throw new Error(await getApiErrorMessage(response, "Failed to load favorites"));
+      }
+      const data = await response.json();
+      setFavoriteRecipeIds(Array.isArray(data?.recipe_ids) ? data.recipe_ids : []);
+    } catch {
+      setFavoriteRecipeIds([]);
+    }
+  }
+
+  async function toggleFavorite(recipeId) {
+    if (!token) {
+      setError("Please log in to manage favorites");
+      return;
+    }
+
+    const isCurrentlyFavorite = favoriteRecipeIdSet.has(recipeId);
+    setError("");
+    setSuccessMessage("");
+    try {
+      const response = await fetch(`${API_BASE}/recipes/${recipeId}/favorite`, {
+        method: isCurrentlyFavorite ? "DELETE" : "POST",
+        headers: getAuthHeaders(),
+      });
+      if (!response.ok) {
+        throw new Error(await getApiErrorMessage(response, "Failed to update favorite"));
+      }
+
+      setFavoriteRecipeIds((previous) => {
+        if (isCurrentlyFavorite) {
+          return previous.filter((id) => id !== recipeId);
+        }
+        if (previous.includes(recipeId)) {
+          return previous;
+        }
+        return [...previous, recipeId];
+      });
+      setSuccessMessage(isCurrentlyFavorite ? "Removed from favorites" : "Added to favorites");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update favorite");
+    }
   }
 
   function updateIngredientRow(setter, index, field, value) {
@@ -746,6 +805,7 @@ export default function App() {
     localStorage.removeItem("auth_token");
     setToken("");
     setCurrentUser(null);
+    setFavoriteRecipeIds([]);
     setSuccessMessage("Logged out successfully");
   }
 
@@ -1290,6 +1350,15 @@ export default function App() {
                         >
                           {pdfExporting ? "Exporting..." : "Export PDF"}
                         </button>
+                        {currentUser ? (
+                          <button
+                            type="button"
+                            onClick={() => toggleFavorite(selectedRecipe.id)}
+                            className="rounded-md border border-slate-300 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100"
+                          >
+                            {favoriteRecipeIdSet.has(selectedRecipe.id) ? "★ Favorited" : "☆ Favorite"}
+                          </button>
+                        ) : null}
                         {canEditSelectedRecipe ? (
                           <button
                             type="button"
@@ -1584,6 +1653,9 @@ export default function App() {
                       }`}
                     >
                       <h3 className="text-base font-semibold text-slate-900">{recipe.title}</h3>
+                      {favoriteRecipeIdSet.has(recipe.id) ? (
+                        <p className="mt-1 text-xs font-medium text-amber-600">★ Favorited</p>
+                      ) : null}
                       <p className="mt-1 text-xs text-slate-500">By {recipe.created_by_username || "Unknown user"}</p>
                       <p className="mt-1 text-sm text-slate-600">
                         {(recipe.ingredients || []).length} ingredients · {(recipe.tags || []).length} tags

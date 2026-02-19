@@ -33,6 +33,13 @@ class CommentAuthor(Base):
     comment_id = Column(Integer, ForeignKey("recipe_comments.id"), primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
 
+
+class RecipeFavorite(Base):
+    __tablename__ = "recipe_favorites"
+    recipe_id = Column(Integer, ForeignKey("recipes.id"), primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), primary_key=True, index=True)
+    created_at = Column(TIMESTAMP, server_default=func.now())
+
 class Recipe(Base):
     __tablename__ = "recipes"
     id = Column(Integer, primary_key=True, index=True)
