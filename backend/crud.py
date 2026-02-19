@@ -68,7 +68,7 @@ def login_user(db: Session, username: str, password: str):
 def get_online_device_count(db: Session, window_seconds: int = 300):
     safe_window = max(30, int(window_seconds or 300))
     threshold = datetime.utcnow() - timedelta(seconds=safe_window)
-    count = db.query(func.count(AuthToken.id)).filter(AuthToken.last_seen_at >= threshold).scalar() or 0
+    count = db.query(func.count(func.distinct(AuthToken.user_id))).filter(AuthToken.last_seen_at >= threshold).scalar() or 0
     return int(count)
 
 def get_recipes(db: Session):
