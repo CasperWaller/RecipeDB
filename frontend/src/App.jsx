@@ -254,6 +254,16 @@ export default function App() {
     () => new Set((ingredientsCatalog || []).map((item) => String(item?.name || "").trim().toLowerCase()).filter(Boolean)),
     [ingredientsCatalog]
   );
+  const ingredientSearchTerm = String(newIngredientName || "").trim().toLowerCase();
+  const ingredientSearchResults = useMemo(() => {
+    if (!ingredientSearchTerm) {
+      return ingredientsCatalog;
+    }
+    return (ingredientsCatalog || []).filter((item) =>
+      String(item?.name || "").toLowerCase().includes(ingredientSearchTerm)
+    );
+  }, [ingredientsCatalog, ingredientSearchTerm]);
+  const ingredientAlreadyExists = Boolean(ingredientSearchTerm && ingredientNameSet.has(ingredientSearchTerm));
 
   const sortedRecipes = useMemo(() => {
     const items = [...recipes];
@@ -565,6 +575,10 @@ export default function App() {
     event.preventDefault();
     if (!newIngredientName.trim()) {
       setError("Ingredient name is required");
+      return;
+    }
+    if (ingredientAlreadyExists) {
+      setError("Ingredient already exists");
       return;
     }
     if (!isAdmin) {
@@ -1509,19 +1523,28 @@ export default function App() {
                 />
                 <button
                   type="submit"
-                  disabled={ingredientSaving || !newIngredientName.trim()}
+                  disabled={ingredientSaving || !newIngredientName.trim() || ingredientAlreadyExists}
                   className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {ingredientSaving ? "Adding..." : "Add Ingredient"}
                 </button>
               </form>
+              {ingredientSearchTerm ? (
+                <p className="mt-2 text-xs text-slate-500">
+                  {ingredientAlreadyExists
+                    ? `Already in list: ${newIngredientName.trim()}`
+                    : ingredientSearchResults.length > 0
+                    ? `${ingredientSearchResults.length} matching ingredients found`
+                    : "No matching ingredients found"}
+                </p>
+              ) : null}
 
                 <div className="mt-3 max-h-40 overflow-auto rounded-lg border border-slate-200 bg-slate-50 p-3">
-                  {ingredientsCatalog.length === 0 ? (
+                  {ingredientSearchResults.length === 0 ? (
                     <p className="text-sm text-slate-500">No ingredients yet.</p>
                   ) : (
                     <ul className="space-y-2 text-sm text-slate-700">
-                      {ingredientsCatalog.map((item) => (
+                      {ingredientSearchResults.map((item) => (
                         <li key={item.id} className="rounded-md border border-slate-200 bg-white p-2">
                           <div className="flex items-center justify-between gap-2">
                             <div className="min-w-0">
