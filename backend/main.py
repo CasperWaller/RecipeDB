@@ -424,8 +424,9 @@ def search(query: str, scope: str = "all", db: Session = Depends(get_db)):
 def create_ingredient(
     ingredient: schemas.IngredientCreate,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user),
+    current_user: models.User = Depends(require_admin),
 ):
+    _ = current_user
     try:
         return crud.create_ingredient(db, ingredient)
     except ValueError as exc:

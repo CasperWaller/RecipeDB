@@ -1403,22 +1403,26 @@ export default function App() {
             <h2 className="text-lg font-semibold text-slate-900">Ingredients</h2>
             <p className="mt-1 text-sm text-slate-500">Add ingredients one by one. Recipes can only use ingredients from this list.</p>
 
-            <form onSubmit={handleAddIngredient} className="mt-4 flex flex-col gap-2 sm:flex-row">
-              <input
-                type="text"
-                value={newIngredientName}
-                onChange={(event) => setNewIngredientName(event.target.value)}
-                placeholder="e.g. chicken"
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-0 placeholder:text-slate-400 focus:border-slate-400"
-              />
-              <button
-                type="submit"
-                disabled={ingredientSaving || !newIngredientName.trim()}
-                className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {ingredientSaving ? "Adding..." : "Add Ingredient"}
-              </button>
-            </form>
+            {isAdmin ? (
+              <form onSubmit={handleAddIngredient} className="mt-4 flex flex-col gap-2 sm:flex-row">
+                <input
+                  type="text"
+                  value={newIngredientName}
+                  onChange={(event) => setNewIngredientName(event.target.value)}
+                  placeholder="e.g. chicken"
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-0 placeholder:text-slate-400 focus:border-slate-400"
+                />
+                <button
+                  type="submit"
+                  disabled={ingredientSaving || !newIngredientName.trim()}
+                  className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {ingredientSaving ? "Adding..." : "Add Ingredient"}
+                </button>
+              </form>
+            ) : (
+              <p className="mt-3 text-xs text-slate-500">Only admins can add ingredients.</p>
+            )}
 
             <div className="mt-3 max-h-40 overflow-auto rounded-lg border border-slate-200 bg-slate-50 p-3">
               {ingredientsCatalog.length === 0 ? (
