@@ -547,25 +547,27 @@ export default function App() {
     const margin = 42;
     const contentWidth = pageWidth - margin * 2;
     const lineHeight = 15;
-    let cursorY = 56;
+    let cursorY = 66;
 
     const drawPageHeader = () => {
-      doc.setFillColor(241, 245, 249);
-      doc.rect(0, 0, pageWidth, 34, "F");
+      doc.setFillColor(15, 23, 42);
+      doc.rect(0, 0, pageWidth, 36, "F");
+      doc.setFillColor(59, 130, 246);
+      doc.rect(0, 36, pageWidth, 4, "F");
       doc.setFont("helvetica", "bold");
       doc.setFontSize(10);
-      doc.setTextColor(51, 65, 85);
-      doc.text("Recipe Export", margin, 21);
+      doc.setTextColor(248, 250, 252);
+      doc.text("Recipe Export", margin, 23);
     };
 
     const nextPage = () => {
       doc.addPage();
       drawPageHeader();
-      cursorY = 56;
+      cursorY = 66;
     };
 
     const ensureSpace = (heightNeeded = lineHeight) => {
-      if (cursorY + heightNeeded <= pageHeight - 40) {
+      if (cursorY + heightNeeded <= pageHeight - 42) {
         return;
       }
       nextPage();
@@ -597,6 +599,8 @@ export default function App() {
       doc.setFont("helvetica", "bold");
       doc.setFontSize(12);
       doc.setTextColor(30, 41, 59);
+      doc.setFillColor(59, 130, 246);
+      doc.roundedRect(margin, cursorY - 10, 4, 14, 1, 1, "F");
       doc.text(title.toUpperCase(), margin, cursorY);
       cursorY += 8;
       doc.setDrawColor(203, 213, 225);
@@ -610,11 +614,11 @@ export default function App() {
     const createdBy = selectedRecipe.created_by_username || "Unknown user";
     const createdAt = selectedRecipe.created_at ? new Date(selectedRecipe.created_at).toLocaleString() : "-";
 
-    ensureSpace(102);
+    ensureSpace(122);
     doc.setFillColor(248, 250, 252);
-    doc.roundedRect(margin, cursorY, contentWidth, 92, 10, 10, "F");
+    doc.roundedRect(margin, cursorY, contentWidth, 112, 10, 10, "F");
     doc.setDrawColor(226, 232, 240);
-    doc.roundedRect(margin, cursorY, contentWidth, 92, 10, 10, "S");
+    doc.roundedRect(margin, cursorY, contentWidth, 112, 10, 10, "S");
 
     const cardTop = cursorY;
     cursorY += 24;
@@ -632,7 +636,23 @@ export default function App() {
     doc.text(`Created by: ${createdBy}`, margin + 14, cursorY);
     cursorY += 16;
     doc.text(`Created at: ${createdAt}`, margin + 14, cursorY);
-    cursorY = cardTop + 108;
+
+    const drawStatChip = (x, y, label, value) => {
+      doc.setFillColor(241, 245, 249);
+      doc.roundedRect(x, y, 120, 28, 8, 8, "F");
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9);
+      doc.setTextColor(71, 85, 105);
+      doc.text(label, x + 10, y + 11);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      doc.setTextColor(30, 41, 59);
+      doc.text(value, x + 10, y + 22);
+    };
+
+    drawStatChip(margin + 14, cardTop + 76, "Prep Time", `${selectedRecipe.prep_time ?? "-"} min`);
+    drawStatChip(margin + 144, cardTop + 76, "Cook Time", `${selectedRecipe.cook_time ?? "-"} min`);
+    cursorY = cardTop + 128;
 
     writeSectionTitle("Description");
     writeTextLine(selectedRecipe.description || "No description", { color: [51, 65, 85] });
@@ -649,14 +669,40 @@ export default function App() {
       writeTextLine("No ingredients listed", { color: [100, 116, 139] });
     } else {
       ingredients.forEach((item) => {
-        writeTextLine(`• ${toTitleCase(item.name)}`, { color: [51, 65, 85] });
+        ensureSpace(14);
+        doc.setFillColor(59, 130, 246);
+        doc.circle(margin + 4, cursorY - 4, 2, "F");
+        writeTextLine(toTitleCase(item.name), { x: margin + 12, maxWidth: contentWidth - 12, color: [51, 65, 85] });
       });
     }
     cursorY += 6;
 
     writeSectionTitle("Tags");
     const tags = selectedRecipe.tags || [];
-    writeTextLine(tags.length ? tags.map((item) => `#${item.name}`).join("  ") : "No tags", { color: [51, 65, 85] });
+    if (!tags.length) {
+      writeTextLine("No tags", { color: [100, 116, 139] });
+    } else {
+      let pillX = margin;
+      let pillY = cursorY;
+      tags.forEach((item) => {
+        const label = `#${item.name}`;
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(10);
+        const textWidth = doc.getTextWidth(label);
+        const pillWidth = textWidth + 18;
+        if (pillX + pillWidth > pageWidth - margin) {
+          pillX = margin;
+          pillY += 22;
+        }
+        ensureSpace(pillY - cursorY + 20);
+        doc.setFillColor(239, 246, 255);
+        doc.roundedRect(pillX, pillY - 10, pillWidth, 18, 7, 7, "F");
+        doc.setTextColor(30, 64, 175);
+        doc.text(label, pillX + 9, pillY + 2);
+        pillX += pillWidth + 8;
+      });
+      cursorY = pillY + 20;
+    }
     cursorY += 6;
 
     writeSectionTitle("Comments");
