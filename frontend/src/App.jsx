@@ -228,6 +228,10 @@ export default function App() {
   const [ingredientsCatalog, setIngredientsCatalog] = useState([]);
   const [newIngredientName, setNewIngredientName] = useState("");
   const [ingredientSaving, setIngredientSaving] = useState(false);
+  const [editingIngredientId, setEditingIngredientId] = useState(null);
+  const [editingIngredientName, setEditingIngredientName] = useState("");
+  const [ingredientUpdatingId, setIngredientUpdatingId] = useState(null);
+  const [ingredientDeletingId, setIngredientDeletingId] = useState(null);
   const [pdfExporting, setPdfExporting] = useState(false);
   const [createIngredientFocusIndex, setCreateIngredientFocusIndex] = useState(null);
   const [editIngredientFocusIndex, setEditIngredientFocusIndex] = useState(null);
@@ -563,6 +567,10 @@ export default function App() {
       setError("Ingredient name is required");
       return;
     }
+    if (!isAdmin) {
+      setError("Only admins can add ingredients");
+      return;
+    }
     if (!token) {
       setError("Please log in to add ingredients");
       return;
@@ -587,6 +595,88 @@ export default function App() {
       setError(err instanceof Error ? err.message : "Failed to add ingredient");
     } finally {
       setIngredientSaving(false);
+    }
+  }
+
+  function startEditIngredient(ingredient) {
+    setEditingIngredientId(ingredient.id);
+    setEditingIngredientName(String(ingredient.name || ""));
+  }
+
+  function cancelEditIngredient() {
+    setEditingIngredientId(null);
+    setEditingIngredientName("");
+  }
+
+  async function handleUpdateIngredient(ingredientId) {
+    if (!token) {
+      setError("Please log in to update ingredients");
+      return;
+    }
+    if (!isAdmin) {
+      setError("Only admins can update ingredients");
+      return;
+    }
+    if (!editingIngredientName.trim()) {
+      setError("Ingredient name is required");
+      return;
+    }
+
+    setIngredientUpdatingId(ingredientId);
+    setError("");
+    setSuccessMessage("");
+    try {
+      const response = await fetch(`${API_BASE}/ingredients/${ingredientId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        body: JSON.stringify({ name: editingIngredientName.trim() }),
+      });
+      if (!response.ok) {
+        throw new Error(await getApiErrorMessage(response, "Failed to update ingredient"));
+      }
+      cancelEditIngredient();
+      await loadIngredients();
+      await loadRecipes();
+      setSuccessMessage("Ingredient updated");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update ingredient");
+    } finally {
+      setIngredientUpdatingId(null);
+    }
+  }
+
+  async function handleDeleteIngredient(ingredient) {
+    const usageCount = Number(ingredient?.recipe_count || 0);
+    if (usageCount > 0) {
+      setError("Cannot delete ingredient that is used by recipes");
+      return;
+    }
+    if (!token) {
+      setError("Please log in to delete ingredients");
+      return;
+    }
+    if (!isAdmin) {
+      setError("Only admins can delete ingredients");
+      return;
+    }
+
+    setIngredientDeletingId(ingredient.id);
+    setError("");
+    setSuccessMessage("");
+    try {
+      const response = await fetch(`${API_BASE}/ingredients/${ingredient.id}`, {
+        method: "DELETE",
+        headers: getAuthHeaders(),
+      });
+      if (!response.ok) {
+        throw new Error(await getApiErrorMessage(response, "Failed to delete ingredient"));
+      }
+      await loadIngredients();
+      setSuccessMessage("Ingredient deleted");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete ingredient");
+    } finally {
+      setIngredientDeletingId(null);
     }
   }
 
@@ -1430,9 +1520,65 @@ export default function App() {
                   {ingredientsCatalog.length === 0 ? (
                     <p className="text-sm text-slate-500">No ingredients yet.</p>
                   ) : (
-                    <ul className="space-y-1 text-sm text-slate-700">
+                    <ul className="space-y-2 text-sm text-slate-700">
                       {ingredientsCatalog.map((item) => (
-                        <li key={item.id}>• {toTitleCase(item.name)}</li>
+                        <li key={item.id} className="rounded-md border border-slate-200 bg-white p-2">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="min-w-0">
+                              {editingIngredientId === item.id ? (
+                                <input
+                                  type="text"
+                                  value={editingIngredientName}
+                                  onChange={(event) => setEditingIngredientName(event.target.value)}
+                                  className="w-full rounded-lg border border-slate-300 px-2 py-1 text-sm outline-none focus:border-slate-400"
+                                />
+                              ) : (
+                                <p className="truncate font-medium text-slate-800">{toTitleCase(item.name)}</p>
+                              )}
+                              <p className="text-xs text-slate-500">Used by {item.recipe_count ?? 0} recipes</p>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              {editingIngredientId === item.id ? (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleUpdateIngredient(item.id)}
+                                    disabled={ingredientUpdatingId === item.id}
+                                    className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+                                  >
+                                    {ingredientUpdatingId === item.id ? "Saving..." : "Save"}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={cancelEditIngredient}
+                                    disabled={ingredientUpdatingId === item.id}
+                                    className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+                                  >
+                                    Cancel
+                                  </button>
+                                </>
+                              ) : (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => startEditIngredient(item)}
+                                    className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100"
+                                  >
+                                    Rename
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteIngredient(item)}
+                                    disabled={Number(item.recipe_count || 0) > 0 || ingredientDeletingId === item.id}
+                                    className="rounded-md border border-rose-200 px-2 py-1 text-xs font-medium text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
+                                  >
+                                    {ingredientDeletingId === item.id ? "Deleting..." : "Delete"}
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        </li>
                       ))}
                     </ul>
                   )}
