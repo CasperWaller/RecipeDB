@@ -55,6 +55,8 @@ function validateRecipeForm({ title, prepTime, cookTime, ingredientsText, tagsTe
 }
 
 export default function App() {
+  const SORT_STORAGE_KEY = "recipe_sort_by";
+  const allowedSortModes = new Set(["newest", "prep", "title"]);
   const [recipes, setRecipes] = useState([]);
   const [selectedRecipeId, setSelectedRecipeId] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -88,7 +90,10 @@ export default function App() {
   const [commentText, setCommentText] = useState("");
   const [commentSaving, setCommentSaving] = useState(false);
   const [commentDeletingId, setCommentDeletingId] = useState(null);
-  const [sortBy, setSortBy] = useState("newest");
+  const [sortBy, setSortBy] = useState(() => {
+    const saved = localStorage.getItem(SORT_STORAGE_KEY) || "newest";
+    return allowedSortModes.has(saved) ? saved : "newest";
+  });
   const [createValidationErrors, setCreateValidationErrors] = useState({});
   const [editValidationErrors, setEditValidationErrors] = useState({});
   const selectedRecipe = recipes.find((recipe) => recipe.id === selectedRecipeId) || null;
@@ -188,6 +193,10 @@ export default function App() {
   useEffect(() => {
     setEditMode(false);
   }, [selectedRecipeId]);
+
+  useEffect(() => {
+    localStorage.setItem(SORT_STORAGE_KEY, sortBy);
+  }, [sortBy, SORT_STORAGE_KEY]);
 
   function getAuthHeaders() {
     return token ? { Authorization: `Bearer ${token}` } : {};
