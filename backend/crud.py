@@ -101,6 +101,18 @@ def touch_online_device(db: Session, device_id: str, user_id: int | None = None)
             row.user_id = user_id
     db.commit()
 
+
+def remove_online_device(db: Session, device_id: str):
+    normalized_device_id = (device_id or "").strip()
+    if not normalized_device_id:
+        return
+
+    row = db.query(OnlineDevicePresence).filter(OnlineDevicePresence.device_id == normalized_device_id).first()
+    if row is None:
+        return
+    db.delete(row)
+    db.commit()
+
 def get_recipes(db: Session):
     recipes = db.query(Recipe).options(
         selectinload(Recipe.ingredients),

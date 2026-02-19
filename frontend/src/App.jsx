@@ -445,9 +445,28 @@ export default function App() {
 
     refreshPresence();
     const intervalId = setInterval(refreshPresence, 30000);
+
+    const sendOfflineBeacon = () => {
+      const payload = JSON.stringify({ device_id: deviceId });
+      if (typeof navigator !== "undefined" && typeof navigator.sendBeacon === "function") {
+        const blob = new Blob([payload], { type: "application/json" });
+        navigator.sendBeacon(`${API_BASE}/presence/offline`, blob);
+        return;
+      }
+      fetch(`${API_BASE}/presence/offline`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: payload,
+        keepalive: true,
+      }).catch(() => {});
+    };
+
+    window.addEventListener("pagehide", sendOfflineBeacon);
     return () => {
       disposed = true;
       clearInterval(intervalId);
+      window.removeEventListener("pagehide", sendOfflineBeacon);
+      sendOfflineBeacon();
     };
   }, [token, deviceId]);
 

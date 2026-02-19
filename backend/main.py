@@ -6,7 +6,7 @@ from sqlalchemy import inspect, text
 from . import crud, models, schemas
 from .database import engine, get_db, Base
 
-ONLINE_DEVICE_WINDOW_SECONDS = int(os.getenv("ONLINE_DEVICE_WINDOW_SECONDS", "300"))
+ONLINE_DEVICE_WINDOW_SECONDS = int(os.getenv("ONLINE_DEVICE_WINDOW_SECONDS", "120"))
 
 # Create tables
 Base.metadata.create_all(bind=engine)
@@ -171,6 +171,15 @@ def presence_heartbeat(
                 user_id = user.id
 
     crud.touch_online_device(db, payload.device_id, user_id=user_id)
+    return {"online_devices": crud.get_online_device_count(db, ONLINE_DEVICE_WINDOW_SECONDS)}
+
+
+@app.post("/presence/offline", response_model=schemas.OnlineDevicesResponse)
+def presence_offline(
+    payload: schemas.PresenceHeartbeatRequest,
+    db: Session = Depends(get_db),
+):
+    crud.remove_online_device(db, payload.device_id)
     return {"online_devices": crud.get_online_device_count(db, ONLINE_DEVICE_WINDOW_SECONDS)}
 
 
