@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
 
@@ -6,6 +6,52 @@ function toTitleCase(value) {
   return String(value || "")
     .toLowerCase()
     .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function parseList(value) {
+  return String(value || "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function findDuplicates(values) {
+  const counts = new Map();
+  values.forEach((value) => {
+    const normalized = value.toLowerCase();
+    counts.set(normalized, (counts.get(normalized) || 0) + 1);
+  });
+  return [...counts.entries()].filter(([, count]) => count > 1).map(([value]) => value);
+}
+
+function validateRecipeForm({ title, prepTime, cookTime, ingredientsText, tagsText }) {
+  const errors = {};
+  const ingredientNames = parseList(ingredientsText);
+  const tagNames = parseList(tagsText);
+
+  if (!title.trim()) {
+    errors.title = "Title is required";
+  }
+
+  if (prepTime.trim() && Number(prepTime) < 0) {
+    errors.prepTime = "Prep time cannot be negative";
+  }
+
+  if (cookTime.trim() && Number(cookTime) < 0) {
+    errors.cookTime = "Cook time cannot be negative";
+  }
+
+  const duplicateIngredients = findDuplicates(ingredientNames);
+  if (duplicateIngredients.length > 0) {
+    errors.ingredients = `Duplicate ingredients: ${duplicateIngredients.join(", ")}`;
+  }
+
+  const duplicateTags = findDuplicates(tagNames);
+  if (duplicateTags.length > 0) {
+    errors.tags = `Duplicate tags: ${duplicateTags.join(", ")}`;
+  }
+
+  return { errors, ingredientNames, tagNames };
 }
 
 export default function App() {
@@ -42,11 +88,29 @@ export default function App() {
   const [commentText, setCommentText] = useState("");
   const [commentSaving, setCommentSaving] = useState(false);
   const [commentDeletingId, setCommentDeletingId] = useState(null);
+  const [sortBy, setSortBy] = useState("newest");
+  const [createValidationErrors, setCreateValidationErrors] = useState({});
+  const [editValidationErrors, setEditValidationErrors] = useState({});
   const selectedRecipe = recipes.find((recipe) => recipe.id === selectedRecipeId) || null;
   const isAdmin = Boolean(currentUser?.is_admin);
   const canEditSelectedRecipe = Boolean(
     selectedRecipe && currentUser && (isAdmin || selectedRecipe.created_by_username === currentUser.username)
   );
+
+  const sortedRecipes = useMemo(() => {
+    const items = [...recipes];
+    if (sortBy === "title") {
+      return items.sort((a, b) => (a.title || "").localeCompare(b.title || ""));
+    }
+    if (sortBy === "prep") {
+      return items.sort((a, b) => {
+        const aValue = a.prep_time == null ? Number.POSITIVE_INFINITY : a.prep_time;
+        const bValue = b.prep_time == null ? Number.POSITIVE_INFINITY : b.prep_time;
+        return aValue - bValue;
+      });
+    }
+    return items.sort((a, b) => b.id - a.id);
+  }, [recipes, sortBy]);
 
   async function loadRecipes(options = {}) {
     const query = options.query ?? searchQuery;
@@ -131,29 +195,28 @@ export default function App() {
 
   async function handleSubmit(event) {
     event.preventDefault();
-    if (!title.trim()) {
-      setError("Title is required");
+    setError("");
+    setCreateValidationErrors({});
+
+    if (!token) {
+      setError("Please log in to create recipes");
+      return;
+    }
+
+    const { errors, ingredientNames, tagNames } = validateRecipeForm({
+      title,
+      prepTime,
+      cookTime,
+      ingredientsText,
+      tagsText,
+    });
+
+    if (Object.keys(errors).length > 0) {
+      setCreateValidationErrors(errors);
       return;
     }
 
     setSaving(true);
-    setError("");
-
-    if (!token) {
-      setError("Please log in to create recipes");
-      setSaving(false);
-      return;
-    }
-
-    const ingredientNames = ingredientsText
-      .split(",")
-      .map((name) => name.trim())
-      .filter(Boolean);
-
-    const tagNames = tagsText
-      .split(",")
-      .map((name) => name.trim())
-      .filter(Boolean);
 
     const payload = {
       title: title.trim(),
@@ -181,6 +244,7 @@ export default function App() {
       setCookTime("");
       setIngredientsText("");
       setTagsText("");
+      setCreateValidationErrors({});
       await loadRecipes();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create recipe");
@@ -303,10 +367,12 @@ export default function App() {
     setEditCookTime(selectedRecipe.cook_time != null ? String(selectedRecipe.cook_time) : "");
     setEditIngredientsText((selectedRecipe.ingredients || []).map((item) => item.name).join(", "));
     setEditTagsText((selectedRecipe.tags || []).map((item) => item.name).join(", "));
+    setEditValidationErrors({});
     setEditMode(true);
   }
 
   function cancelEditRecipe() {
+    setEditValidationErrors({});
     setEditMode(false);
   }
 
@@ -325,21 +391,19 @@ export default function App() {
       setError("Only the recipe owner can edit this recipe");
       return;
     }
+    setEditValidationErrors({});
+    const { errors, ingredientNames, tagNames } = validateRecipeForm({
+      title: editTitle,
+      prepTime: editPrepTime,
+      cookTime: editCookTime,
+      ingredientsText: editIngredientsText,
+      tagsText: editTagsText,
+    });
 
-    if (!editTitle.trim()) {
-      setError("Title is required");
+    if (Object.keys(errors).length > 0) {
+      setEditValidationErrors(errors);
       return;
     }
-
-    const ingredientNames = editIngredientsText
-      .split(",")
-      .map((name) => name.trim())
-      .filter(Boolean);
-
-    const tagNames = editTagsText
-      .split(",")
-      .map((name) => name.trim())
-      .filter(Boolean);
 
     const payload = {
       title: editTitle.trim(),
@@ -535,10 +599,16 @@ export default function App() {
                 <input
                   type="text"
                   value={title}
-                  onChange={(event) => setTitle(event.target.value)}
+                  onChange={(event) => {
+                    setTitle(event.target.value);
+                    setCreateValidationErrors((previous) => ({ ...previous, title: "" }));
+                  }}
                   placeholder="e.g. Spaghetti"
                   className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-0 placeholder:text-slate-400 focus:border-slate-400"
                 />
+                {createValidationErrors.title ? (
+                  <p className="mt-1 text-xs text-rose-600">{createValidationErrors.title}</p>
+                ) : null}
               </label>
 
               <label className="block">
@@ -557,10 +627,16 @@ export default function App() {
                 <input
                   type="text"
                   value={ingredientsText}
-                  onChange={(event) => setIngredientsText(event.target.value)}
+                  onChange={(event) => {
+                    setIngredientsText(event.target.value);
+                    setCreateValidationErrors((previous) => ({ ...previous, ingredients: "" }));
+                  }}
                   placeholder="tomato, garlic, pasta"
                   className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-0 placeholder:text-slate-400 focus:border-slate-400"
                 />
+                {createValidationErrors.ingredients ? (
+                  <p className="mt-1 text-xs text-rose-600">{createValidationErrors.ingredients}</p>
+                ) : null}
               </label>
 
               <div className="grid gap-4 sm:grid-cols-2">
@@ -571,10 +647,16 @@ export default function App() {
                     min="0"
                     step="1"
                     value={prepTime}
-                    onChange={(event) => setPrepTime(event.target.value)}
+                    onChange={(event) => {
+                      setPrepTime(event.target.value);
+                      setCreateValidationErrors((previous) => ({ ...previous, prepTime: "" }));
+                    }}
                     placeholder="e.g. 15"
                     className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-0 placeholder:text-slate-400 focus:border-slate-400"
                   />
+                  {createValidationErrors.prepTime ? (
+                    <p className="mt-1 text-xs text-rose-600">{createValidationErrors.prepTime}</p>
+                  ) : null}
                 </label>
 
                 <label className="block">
@@ -584,10 +666,16 @@ export default function App() {
                     min="0"
                     step="1"
                     value={cookTime}
-                    onChange={(event) => setCookTime(event.target.value)}
+                    onChange={(event) => {
+                      setCookTime(event.target.value);
+                      setCreateValidationErrors((previous) => ({ ...previous, cookTime: "" }));
+                    }}
                     placeholder="e.g. 30"
                     className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-0 placeholder:text-slate-400 focus:border-slate-400"
                   />
+                  {createValidationErrors.cookTime ? (
+                    <p className="mt-1 text-xs text-rose-600">{createValidationErrors.cookTime}</p>
+                  ) : null}
                 </label>
               </div>
 
@@ -596,10 +684,16 @@ export default function App() {
                 <input
                   type="text"
                   value={tagsText}
-                  onChange={(event) => setTagsText(event.target.value)}
+                  onChange={(event) => {
+                    setTagsText(event.target.value);
+                    setCreateValidationErrors((previous) => ({ ...previous, tags: "" }));
+                  }}
                   placeholder="dinner, italian"
                   className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-0 placeholder:text-slate-400 focus:border-slate-400"
                 />
+                {createValidationErrors.tags ? (
+                  <p className="mt-1 text-xs text-rose-600">{createValidationErrors.tags}</p>
+                ) : null}
               </label>
 
               <div className="flex gap-2">
@@ -646,6 +740,15 @@ export default function App() {
                 <option value="ingredients">Ingredients</option>
                 <option value="tags">Tags</option>
               </select>
+              <select
+                value={sortBy}
+                onChange={(event) => setSortBy(event.target.value)}
+                className="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 outline-none focus:border-slate-400"
+              >
+                <option value="newest">Newest</option>
+                <option value="prep">Prep Time</option>
+                <option value="title">A-Z</option>
+              </select>
               <button
                 type="button"
                 onClick={clearSearch}
@@ -659,9 +762,17 @@ export default function App() {
               <div className="mb-4 rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{error}</div>
             ) : null}
 
+            {loading ? (
+              <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-6 text-center text-slate-500">
+                Loading recipes...
+              </div>
+            ) : null}
+
             {!loading && recipes.length === 0 ? (
               <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-6 text-center text-slate-500">
-                No recipes yet. Add your first recipe from the form.
+                {searchQuery.trim()
+                  ? "No recipes match your search. Try another keyword or scope."
+                  : "No recipes yet. Add your first recipe from the form."}
               </div>
             ) : null}
 
@@ -730,9 +841,15 @@ export default function App() {
                           <input
                             type="text"
                             value={editTitle}
-                            onChange={(event) => setEditTitle(event.target.value)}
+                            onChange={(event) => {
+                              setEditTitle(event.target.value);
+                              setEditValidationErrors((previous) => ({ ...previous, title: "" }));
+                            }}
                             className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-0 focus:border-slate-400"
                           />
+                          {editValidationErrors.title ? (
+                            <p className="mt-1 text-xs text-rose-600">{editValidationErrors.title}</p>
+                          ) : null}
                         </label>
                         <label className="block">
                           <span className="mb-1 block text-xs font-medium text-slate-700">Description</span>
@@ -751,9 +868,15 @@ export default function App() {
                               min="0"
                               step="1"
                               value={editPrepTime}
-                              onChange={(event) => setEditPrepTime(event.target.value)}
+                              onChange={(event) => {
+                                setEditPrepTime(event.target.value);
+                                setEditValidationErrors((previous) => ({ ...previous, prepTime: "" }));
+                              }}
                               className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-0 focus:border-slate-400"
                             />
+                            {editValidationErrors.prepTime ? (
+                              <p className="mt-1 text-xs text-rose-600">{editValidationErrors.prepTime}</p>
+                            ) : null}
                           </label>
                           <label className="block">
                             <span className="mb-1 block text-xs font-medium text-slate-700">Cook Time (min)</span>
@@ -762,9 +885,15 @@ export default function App() {
                               min="0"
                               step="1"
                               value={editCookTime}
-                              onChange={(event) => setEditCookTime(event.target.value)}
+                              onChange={(event) => {
+                                setEditCookTime(event.target.value);
+                                setEditValidationErrors((previous) => ({ ...previous, cookTime: "" }));
+                              }}
                               className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-0 focus:border-slate-400"
                             />
+                            {editValidationErrors.cookTime ? (
+                              <p className="mt-1 text-xs text-rose-600">{editValidationErrors.cookTime}</p>
+                            ) : null}
                           </label>
                         </div>
                         <label className="block">
@@ -772,18 +901,30 @@ export default function App() {
                           <input
                             type="text"
                             value={editIngredientsText}
-                            onChange={(event) => setEditIngredientsText(event.target.value)}
+                            onChange={(event) => {
+                              setEditIngredientsText(event.target.value);
+                              setEditValidationErrors((previous) => ({ ...previous, ingredients: "" }));
+                            }}
                             className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-0 focus:border-slate-400"
                           />
+                          {editValidationErrors.ingredients ? (
+                            <p className="mt-1 text-xs text-rose-600">{editValidationErrors.ingredients}</p>
+                          ) : null}
                         </label>
                         <label className="block">
                           <span className="mb-1 block text-xs font-medium text-slate-700">Tags</span>
                           <input
                             type="text"
                             value={editTagsText}
-                            onChange={(event) => setEditTagsText(event.target.value)}
+                            onChange={(event) => {
+                              setEditTagsText(event.target.value);
+                              setEditValidationErrors((previous) => ({ ...previous, tags: "" }));
+                            }}
                             className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-0 focus:border-slate-400"
                           />
+                          {editValidationErrors.tags ? (
+                            <p className="mt-1 text-xs text-rose-600">{editValidationErrors.tags}</p>
+                          ) : null}
                         </label>
                         <div className="flex gap-2">
                           <button
@@ -861,7 +1002,7 @@ export default function App() {
 
                 <p className="mb-2 text-xs uppercase tracking-wide text-slate-500">Tap a recipe for details</p>
                 <ul className="space-y-3">
-                {recipes.map((recipe) => (
+                {sortedRecipes.map((recipe) => (
                   <li key={recipe.id}>
                     <button
                       type="button"
