@@ -745,6 +745,10 @@ export default function App() {
       setError("Please log in to create recipes");
       return;
     }
+    if (!isAdmin) {
+      setError("Only admins can create recipes");
+      return;
+    }
 
     const { errors, ingredientEntries, tagNames } = validateRecipeForm({
       title,
@@ -1399,7 +1403,7 @@ export default function App() {
         </div>
 
         <div className="grid gap-6 lg:grid-cols-5">
-          <section className="rounded-2xl border border-slate-200 bg-white p-6 lg:col-span-2">
+          <section className={`${isAdmin ? "" : "hidden"} rounded-2xl border border-slate-200 bg-white p-6 lg:col-span-2`}>
             {isAdmin ? (
               <>
                 <h2 className="text-lg font-semibold text-slate-900">Ingredients</h2>
@@ -1439,7 +1443,8 @@ export default function App() {
             <h2 className={`${isAdmin ? "mt-6" : ""} text-lg font-semibold text-slate-900`}>Add Recipe</h2>
             <p className="mt-1 text-sm text-slate-500">Fill out the form to create a new recipe.</p>
 
-            <form onSubmit={handleSubmit} className="mt-5 space-y-4">
+            {isAdmin ? (
+              <form onSubmit={handleSubmit} className="mt-5 space-y-4">
               <label className="block">
                 <span className="mb-1 block text-sm font-medium text-slate-700">Title</span>
                 <input
@@ -1629,10 +1634,15 @@ export default function App() {
                   Clear Draft
                 </button>
               </div>
-            </form>
+              </form>
+            ) : (
+              <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">
+                Only admins can create recipes.
+              </div>
+            )}
           </section>
 
-          <section className="rounded-2xl border border-slate-200 bg-white p-6 lg:col-span-3">
+          <section className={`rounded-2xl border border-slate-200 bg-white p-6 ${isAdmin ? "lg:col-span-3" : "lg:col-span-5"}`}>
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-lg font-semibold text-slate-900">Recipes</h2>
               {loading ? <span className="text-sm text-slate-500">Loading...</span> : null}

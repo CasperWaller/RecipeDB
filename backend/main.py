@@ -241,7 +241,7 @@ def me(current_user: models.User = Depends(get_current_user)):
 def create_recipe(
     recipe: schemas.RecipeCreate,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user),
+    current_user: models.User = Depends(require_admin),
 ):
     try:
         return crud.create_recipe(db, recipe, user_id=current_user.id)
