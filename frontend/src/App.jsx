@@ -17,27 +17,21 @@ function parseList(value) {
     .filter(Boolean);
 }
 
-function parseIngredientEntries(value) {
-  return parseList(value)
-    .map((item) => {
-      const separatorIndex = item.indexOf(":");
-      if (separatorIndex < 0) {
-        return { name: item, quantity: null };
-      }
-      const name = item.slice(0, separatorIndex).trim();
-      const quantity = item.slice(separatorIndex + 1).trim();
-      return { name, quantity: quantity || null };
-    })
-    .filter((item) => item.name);
+function createEmptyIngredientRow() {
+  return { name: "", quantity: "" };
 }
 
-function formatIngredientEntries(items) {
-  return (items || [])
-    .map((item) => {
-      const quantity = item.quantity ? String(item.quantity).trim() : "";
-      return quantity ? `${item.name}: ${quantity}` : item.name;
-    })
-    .join(", ");
+function normalizeIngredientEntries(entries) {
+  return (entries || [])
+    .map((item) => ({
+      name: String(item?.name || "").trim(),
+      quantity: String(item?.quantity || "").trim(),
+    }))
+    .filter((item) => item.name)
+    .map((item) => ({
+      name: item.name,
+      quantity: item.quantity || null,
+    }));
 }
 
 function findDuplicates(values) {
@@ -49,10 +43,10 @@ function findDuplicates(values) {
   return [...counts.entries()].filter(([, count]) => count > 1).map(([value]) => value);
 }
 
-function validateRecipeForm({ title, prepTime, cookTime, ingredientsText, tagsText }) {
+function validateRecipeForm({ title, prepTime, cookTime, ingredientEntries, tagsText }) {
   const errors = {};
-  const ingredientEntries = parseIngredientEntries(ingredientsText);
-  const ingredientNames = ingredientEntries.map((item) => item.name);
+  const normalizedIngredientEntries = normalizeIngredientEntries(ingredientEntries);
+  const ingredientNames = normalizedIngredientEntries.map((item) => item.name);
   const tagNames = parseList(tagsText);
 
   if (!title.trim()) {
@@ -72,7 +66,7 @@ function validateRecipeForm({ title, prepTime, cookTime, ingredientsText, tagsTe
     errors.ingredients = `Duplicate ingredients: ${duplicateIngredients.join(", ")}`;
   }
 
-  const invalidQuantity = ingredientEntries.find((item) => {
+  const invalidQuantity = normalizedIngredientEntries.find((item) => {
     if (!item.quantity) {
       return false;
     }
@@ -88,7 +82,7 @@ function validateRecipeForm({ title, prepTime, cookTime, ingredientsText, tagsTe
     errors.tags = `Duplicate tags: ${duplicateTags.join(", ")}`;
   }
 
-  return { errors, ingredientEntries, tagNames };
+  return { errors, ingredientEntries: normalizedIngredientEntries, tagNames };
 }
 
 function toPdfFileName(value) {
@@ -138,14 +132,14 @@ export default function App() {
   const [description, setDescription] = useState("");
   const [prepTime, setPrepTime] = useState("");
   const [cookTime, setCookTime] = useState("");
-  const [ingredientsText, setIngredientsText] = useState("");
+  const [ingredientRows, setIngredientRows] = useState([createEmptyIngredientRow()]);
   const [tagsText, setTagsText] = useState("");
   const [editMode, setEditMode] = useState(false);
   const [editTitle, setEditTitle] = useState("");
   const [editDescription, setEditDescription] = useState("");
   const [editPrepTime, setEditPrepTime] = useState("");
   const [editCookTime, setEditCookTime] = useState("");
-  const [editIngredientsText, setEditIngredientsText] = useState("");
+  const [editIngredientRows, setEditIngredientRows] = useState([createEmptyIngredientRow()]);
   const [editTagsText, setEditTagsText] = useState("");
   const [editSaving, setEditSaving] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -161,6 +155,8 @@ export default function App() {
   const [commentText, setCommentText] = useState("");
   const [commentSaving, setCommentSaving] = useState(false);
   const [commentDeletingId, setCommentDeletingId] = useState(null);
+  const [createIngredientFocusIndex, setCreateIngredientFocusIndex] = useState(null);
+  const [editIngredientFocusIndex, setEditIngredientFocusIndex] = useState(null);
   const [sortBy, setSortBy] = useState(() => {
     const saved = localStorage.getItem(SORT_STORAGE_KEY) || "newest";
     return allowedSortModes.has(saved) ? saved : "newest";
@@ -281,6 +277,53 @@ export default function App() {
     return token ? { Authorization: `Bearer ${token}` } : {};
   }
 
+  function updateIngredientRow(setter, index, field, value) {
+    setter((previous) =>
+      previous.map((row, rowIndex) => (rowIndex === index ? { ...row, [field]: value } : row))
+    );
+  }
+
+  function addIngredientRow(setter, setFocusIndex) {
+    setter((previous) => {
+      const nextRows = [...previous, createEmptyIngredientRow()];
+      if (setFocusIndex) {
+        setFocusIndex(nextRows.length - 1);
+      }
+      return nextRows;
+    });
+  }
+
+  function removeIngredientRow(setter, index) {
+    setter((previous) => {
+      if (previous.length <= 1) {
+        return [createEmptyIngredientRow()];
+      }
+      return previous.filter((_, rowIndex) => rowIndex !== index);
+    });
+  }
+
+  useEffect(() => {
+    if (createIngredientFocusIndex == null) {
+      return;
+    }
+    const input = document.getElementById(`create-ingredient-name-${createIngredientFocusIndex}`);
+    if (input) {
+      input.focus();
+    }
+    setCreateIngredientFocusIndex(null);
+  }, [ingredientRows, createIngredientFocusIndex]);
+
+  useEffect(() => {
+    if (editIngredientFocusIndex == null) {
+      return;
+    }
+    const input = document.getElementById(`edit-ingredient-name-${editIngredientFocusIndex}`);
+    if (input) {
+      input.focus();
+    }
+    setEditIngredientFocusIndex(null);
+  }, [editIngredientRows, editIngredientFocusIndex]);
+
   async function handleSubmit(event) {
     event.preventDefault();
     setError("");
@@ -295,7 +338,7 @@ export default function App() {
       title,
       prepTime,
       cookTime,
-      ingredientsText,
+      ingredientEntries: ingredientRows,
       tagsText,
     });
 
@@ -330,7 +373,7 @@ export default function App() {
       setDescription("");
       setPrepTime("");
       setCookTime("");
-      setIngredientsText("");
+      setIngredientRows([createEmptyIngredientRow()]);
       setTagsText("");
       setCreateValidationErrors({});
       await loadRecipes();
@@ -455,13 +498,14 @@ export default function App() {
     setEditCookTime(selectedRecipe.cook_time != null ? String(selectedRecipe.cook_time) : "");
     const ingredientEntries = (selectedRecipe.ingredient_measurements || []).map((item) => ({
       name: item.name,
-      quantity: item.quantity,
+      quantity: item.quantity || "",
     }));
-    setEditIngredientsText(
-      ingredientEntries.length > 0
-        ? formatIngredientEntries(ingredientEntries)
-        : (selectedRecipe.ingredients || []).map((item) => item.name).join(", ")
-    );
+    if (ingredientEntries.length > 0) {
+      setEditIngredientRows(ingredientEntries);
+    } else {
+      const fallbackRows = (selectedRecipe.ingredients || []).map((item) => ({ name: item.name, quantity: "" }));
+      setEditIngredientRows(fallbackRows.length > 0 ? fallbackRows : [createEmptyIngredientRow()]);
+    }
     setEditTagsText((selectedRecipe.tags || []).map((item) => item.name).join(", "));
     setEditValidationErrors({});
     setEditMode(true);
@@ -492,7 +536,7 @@ export default function App() {
       title: editTitle,
       prepTime: editPrepTime,
       cookTime: editCookTime,
-      ingredientsText: editIngredientsText,
+      ingredientEntries: editIngredientRows,
       tagsText: editTagsText,
     });
 
@@ -873,17 +917,48 @@ export default function App() {
 
               <label className="block">
                 <span className="mb-1 block text-sm font-medium text-slate-700">Ingredients</span>
-                <input
-                  type="text"
-                  value={ingredientsText}
-                  onChange={(event) => {
-                    setIngredientsText(event.target.value);
-                    setCreateValidationErrors((previous) => ({ ...previous, ingredients: "" }));
-                  }}
-                  placeholder="flour: 2 dl, milk: 300 ml, sugar: 150 g"
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-0 placeholder:text-slate-400 focus:border-slate-400"
-                />
-                <p className="mt-1 text-xs text-slate-500">Use format ingredient: quantity (ml, cl, dl, l, mg, g, kg, st)</p>
+                <div className="space-y-2">
+                  {ingredientRows.map((row, index) => (
+                    <div key={`create-ingredient-${index}`} className="grid grid-cols-12 gap-2">
+                      <input
+                        id={`create-ingredient-name-${index}`}
+                        type="text"
+                        value={row.name}
+                        onChange={(event) => {
+                          updateIngredientRow(setIngredientRows, index, "name", event.target.value);
+                          setCreateValidationErrors((previous) => ({ ...previous, ingredients: "" }));
+                        }}
+                        placeholder="Ingredient"
+                        className="col-span-6 rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-0 focus:border-slate-400"
+                      />
+                      <input
+                        type="text"
+                        value={row.quantity}
+                        onChange={(event) => {
+                          updateIngredientRow(setIngredientRows, index, "quantity", event.target.value);
+                          setCreateValidationErrors((previous) => ({ ...previous, ingredients: "" }));
+                        }}
+                        placeholder="Quantity (e.g. 2 dl)"
+                        className="col-span-5 rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-0 focus:border-slate-400"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeIngredientRow(setIngredientRows, index)}
+                        className="col-span-1 inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-300 text-sm font-medium text-slate-700 hover:bg-slate-100"
+                      >
+                        −
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => addIngredientRow(setIngredientRows, setCreateIngredientFocusIndex)}
+                    className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100"
+                  >
+                    Add Ingredient
+                  </button>
+                </div>
+                <p className="mt-1 text-xs text-slate-500">Use EU units: ml, cl, dl, l, mg, g, kg, st</p>
                 {createValidationErrors.ingredients ? (
                   <p className="mt-1 text-xs text-rose-600">{createValidationErrors.ingredients}</p>
                 ) : null}
@@ -1160,17 +1235,48 @@ export default function App() {
                         </div>
                         <label className="block">
                           <span className="mb-1 block text-xs font-medium text-slate-700">Ingredients</span>
-                          <input
-                            type="text"
-                            value={editIngredientsText}
-                            onChange={(event) => {
-                              setEditIngredientsText(event.target.value);
-                              setEditValidationErrors((previous) => ({ ...previous, ingredients: "" }));
-                            }}
-                            placeholder="flour: 2 dl, milk: 300 ml, sugar: 150 g"
-                            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-0 focus:border-slate-400"
-                          />
-                          <p className="mt-1 text-xs text-slate-500">Use format ingredient: quantity (ml, cl, dl, l, mg, g, kg, st)</p>
+                          <div className="space-y-2">
+                            {editIngredientRows.map((row, index) => (
+                              <div key={`edit-ingredient-${index}`} className="grid grid-cols-12 gap-2">
+                                <input
+                                  id={`edit-ingredient-name-${index}`}
+                                  type="text"
+                                  value={row.name}
+                                  onChange={(event) => {
+                                    updateIngredientRow(setEditIngredientRows, index, "name", event.target.value);
+                                    setEditValidationErrors((previous) => ({ ...previous, ingredients: "" }));
+                                  }}
+                                  placeholder="Ingredient"
+                                  className="col-span-6 rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-0 focus:border-slate-400"
+                                />
+                                <input
+                                  type="text"
+                                  value={row.quantity}
+                                  onChange={(event) => {
+                                    updateIngredientRow(setEditIngredientRows, index, "quantity", event.target.value);
+                                    setEditValidationErrors((previous) => ({ ...previous, ingredients: "" }));
+                                  }}
+                                  placeholder="Quantity (e.g. 2 dl)"
+                                  className="col-span-5 rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-0 focus:border-slate-400"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => removeIngredientRow(setEditIngredientRows, index)}
+                                  className="col-span-1 inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-300 text-sm font-medium text-slate-700 hover:bg-slate-100"
+                                >
+                                  −
+                                </button>
+                              </div>
+                            ))}
+                            <button
+                              type="button"
+                              onClick={() => addIngredientRow(setEditIngredientRows, setEditIngredientFocusIndex)}
+                              className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100"
+                            >
+                              Add Ingredient
+                            </button>
+                          </div>
+                          <p className="mt-1 text-xs text-slate-500">Use EU units: ml, cl, dl, l, mg, g, kg, st</p>
                           {editValidationErrors.ingredients ? (
                             <p className="mt-1 text-xs text-rose-600">{editValidationErrors.ingredients}</p>
                           ) : null}
