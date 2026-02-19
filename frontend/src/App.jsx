@@ -544,81 +544,147 @@ export default function App() {
     const doc = new jsPDF({ unit: "pt", format: "a4" });
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
-    const margin = 44;
-    const maxWidth = pageWidth - margin * 2;
-    const lineHeight = 16;
-    let cursorY = margin;
+    const margin = 42;
+    const contentWidth = pageWidth - margin * 2;
+    const lineHeight = 15;
+    let cursorY = 56;
 
-    const ensureSpace = (neededHeight = lineHeight) => {
-      if (cursorY + neededHeight <= pageHeight - margin) {
+    const drawPageHeader = () => {
+      doc.setFillColor(241, 245, 249);
+      doc.rect(0, 0, pageWidth, 34, "F");
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10);
+      doc.setTextColor(51, 65, 85);
+      doc.text("Recipe Export", margin, 21);
+    };
+
+    const nextPage = () => {
+      doc.addPage();
+      drawPageHeader();
+      cursorY = 56;
+    };
+
+    const ensureSpace = (heightNeeded = lineHeight) => {
+      if (cursorY + heightNeeded <= pageHeight - 40) {
         return;
       }
-      doc.addPage();
-      cursorY = margin;
+      nextPage();
     };
 
-    const writeHeading = (text) => {
-      ensureSpace(28);
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(22);
-      doc.text(text, margin, cursorY);
-      cursorY += 28;
+    const writeTextLine = (text, options = {}) => {
+      const {
+        x = margin,
+        maxWidth = contentWidth,
+        font = "normal",
+        size = 11,
+        color = [15, 23, 42],
+        gap = lineHeight,
+      } = options;
+
+      doc.setFont("helvetica", font);
+      doc.setFontSize(size);
+      doc.setTextColor(color[0], color[1], color[2]);
+      const wrapped = doc.splitTextToSize(String(text || "-"), maxWidth);
+      wrapped.forEach((line) => {
+        ensureSpace(gap);
+        doc.text(line, x, cursorY);
+        cursorY += gap;
+      });
     };
 
-    const writeLabel = (text) => {
-      ensureSpace(18);
+    const writeSectionTitle = (title) => {
+      ensureSpace(24);
       doc.setFont("helvetica", "bold");
       doc.setFontSize(12);
-      doc.text(text, margin, cursorY);
-      cursorY += 18;
+      doc.setTextColor(30, 41, 59);
+      doc.text(title.toUpperCase(), margin, cursorY);
+      cursorY += 8;
+      doc.setDrawColor(203, 213, 225);
+      doc.setLineWidth(0.8);
+      doc.line(margin, cursorY, pageWidth - margin, cursorY);
+      cursorY += 14;
     };
 
-    const writeBody = (text) => {
-      const lines = doc.splitTextToSize(String(text || "-"), maxWidth);
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(11);
-      lines.forEach((line) => {
-        ensureSpace(lineHeight);
-        doc.text(line, margin, cursorY);
-        cursorY += lineHeight;
+    drawPageHeader();
+
+    const createdBy = selectedRecipe.created_by_username || "Unknown user";
+    const createdAt = selectedRecipe.created_at ? new Date(selectedRecipe.created_at).toLocaleString() : "-";
+
+    ensureSpace(102);
+    doc.setFillColor(248, 250, 252);
+    doc.roundedRect(margin, cursorY, contentWidth, 92, 10, 10, "F");
+    doc.setDrawColor(226, 232, 240);
+    doc.roundedRect(margin, cursorY, contentWidth, 92, 10, 10, "S");
+
+    const cardTop = cursorY;
+    cursorY += 24;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(22);
+    doc.setTextColor(15, 23, 42);
+    const recipeTitle = selectedRecipe.title || "Recipe";
+    const titleLines = doc.splitTextToSize(recipeTitle, contentWidth - 28);
+    doc.text(titleLines[0], margin + 14, cursorY);
+    cursorY += 22;
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(11);
+    doc.setTextColor(71, 85, 105);
+    doc.text(`Created by: ${createdBy}`, margin + 14, cursorY);
+    cursorY += 16;
+    doc.text(`Created at: ${createdAt}`, margin + 14, cursorY);
+    cursorY = cardTop + 108;
+
+    writeSectionTitle("Description");
+    writeTextLine(selectedRecipe.description || "No description", { color: [51, 65, 85] });
+    cursorY += 6;
+
+    writeSectionTitle("Timing");
+    writeTextLine(`Prep: ${selectedRecipe.prep_time ?? "-"} min`, { color: [51, 65, 85] });
+    writeTextLine(`Cook: ${selectedRecipe.cook_time ?? "-"} min`, { color: [51, 65, 85] });
+    cursorY += 6;
+
+    writeSectionTitle("Ingredients");
+    const ingredients = selectedRecipe.ingredients || [];
+    if (ingredients.length === 0) {
+      writeTextLine("No ingredients listed", { color: [100, 116, 139] });
+    } else {
+      ingredients.forEach((item) => {
+        writeTextLine(`• ${toTitleCase(item.name)}`, { color: [51, 65, 85] });
       });
-      cursorY += 6;
-    };
+    }
+    cursorY += 6;
 
-    writeHeading(selectedRecipe.title || "Recipe");
+    writeSectionTitle("Tags");
+    const tags = selectedRecipe.tags || [];
+    writeTextLine(tags.length ? tags.map((item) => `#${item.name}`).join("  ") : "No tags", { color: [51, 65, 85] });
+    cursorY += 6;
 
-    writeLabel("Created by");
-    writeBody(selectedRecipe.created_by_username || "Unknown user");
-
-    writeLabel("Description");
-    writeBody(selectedRecipe.description || "No description");
-
-    writeLabel("Prep / Cook");
-    writeBody(`${selectedRecipe.prep_time ?? "-"} / ${selectedRecipe.cook_time ?? "-"} min`);
-
-    writeLabel("Ingredients");
-    const ingredientText = (selectedRecipe.ingredients || []).length
-      ? selectedRecipe.ingredients.map((item) => `• ${toTitleCase(item.name)}`).join("\n")
-      : "-";
-    writeBody(ingredientText);
-
-    writeLabel("Tags");
-    const tagsTextValue = (selectedRecipe.tags || []).length
-      ? selectedRecipe.tags.map((item) => `#${item.name}`).join(", ")
-      : "-";
-    writeBody(tagsTextValue);
-
-    writeLabel("Comments");
+    writeSectionTitle("Comments");
     const comments = selectedRecipe.comments || [];
     if (comments.length === 0) {
-      writeBody("No comments");
+      writeTextLine("No comments", { color: [100, 116, 139] });
     } else {
       comments.forEach((comment, index) => {
         const author = comment.created_by_username || "Unknown user";
         const timestamp = comment.created_at ? new Date(comment.created_at).toLocaleString() : "";
-        const header = timestamp ? `${index + 1}. ${author} (${timestamp})` : `${index + 1}. ${author}`;
-        writeBody(`${header}\n${comment.content}`);
+        const commentHeader = timestamp ? `${index + 1}. ${author} • ${timestamp}` : `${index + 1}. ${author}`;
+        writeTextLine(commentHeader, { font: "bold", size: 10, color: [30, 41, 59], gap: 14 });
+        writeTextLine(comment.content, { color: [51, 65, 85] });
+        cursorY += 4;
       });
+    }
+
+    const totalPages = doc.getNumberOfPages();
+    for (let pageNumber = 1; pageNumber <= totalPages; pageNumber += 1) {
+      doc.setPage(pageNumber);
+      doc.setDrawColor(226, 232, 240);
+      doc.setLineWidth(0.6);
+      doc.line(margin, pageHeight - 30, pageWidth - margin, pageHeight - 30);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.setTextColor(100, 116, 139);
+      doc.text(`Generated ${new Date().toLocaleDateString()}`, margin, pageHeight - 16);
+      doc.text(`Page ${pageNumber} of ${totalPages}`, pageWidth - margin, pageHeight - 16, { align: "right" });
     }
 
     doc.save(toPdfFileName(selectedRecipe.title));
