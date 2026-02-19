@@ -1400,10 +1400,11 @@ export default function App() {
 
         <div className="grid gap-6 lg:grid-cols-5">
           <section className="rounded-2xl border border-slate-200 bg-white p-6 lg:col-span-2">
-            <h2 className="text-lg font-semibold text-slate-900">Ingredients</h2>
-            <p className="mt-1 text-sm text-slate-500">Add ingredients one by one. Recipes can only use ingredients from this list.</p>
-
             {isAdmin ? (
+              <>
+                <h2 className="text-lg font-semibold text-slate-900">Ingredients</h2>
+                <p className="mt-1 text-sm text-slate-500">Add ingredients one by one. Recipes can only use ingredients from this list.</p>
+
               <form onSubmit={handleAddIngredient} className="mt-4 flex flex-col gap-2 sm:flex-row">
                 <input
                   type="text"
@@ -1420,23 +1421,22 @@ export default function App() {
                   {ingredientSaving ? "Adding..." : "Add Ingredient"}
                 </button>
               </form>
-            ) : (
-              <p className="mt-3 text-xs text-slate-500">Only admins can add ingredients.</p>
-            )}
 
-            <div className="mt-3 max-h-40 overflow-auto rounded-lg border border-slate-200 bg-slate-50 p-3">
-              {ingredientsCatalog.length === 0 ? (
-                <p className="text-sm text-slate-500">No ingredients yet.</p>
-              ) : (
-                <ul className="space-y-1 text-sm text-slate-700">
-                  {ingredientsCatalog.map((item) => (
-                    <li key={item.id}>• {toTitleCase(item.name)}</li>
-                  ))}
-                </ul>
-              )}
-            </div>
+                <div className="mt-3 max-h-40 overflow-auto rounded-lg border border-slate-200 bg-slate-50 p-3">
+                  {ingredientsCatalog.length === 0 ? (
+                    <p className="text-sm text-slate-500">No ingredients yet.</p>
+                  ) : (
+                    <ul className="space-y-1 text-sm text-slate-700">
+                      {ingredientsCatalog.map((item) => (
+                        <li key={item.id}>• {toTitleCase(item.name)}</li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </>
+            ) : null}
 
-            <h2 className="mt-6 text-lg font-semibold text-slate-900">Add Recipe</h2>
+            <h2 className={`${isAdmin ? "mt-6" : ""} text-lg font-semibold text-slate-900`}>Add Recipe</h2>
             <p className="mt-1 text-sm text-slate-500">Fill out the form to create a new recipe.</p>
 
             <form onSubmit={handleSubmit} className="mt-5 space-y-4">
