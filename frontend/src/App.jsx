@@ -145,12 +145,6 @@ export default function App() {
       return;
     }
 
-    if (!isAdmin) {
-      setError("Only admin can create recipes");
-      setSaving(false);
-      return;
-    }
-
     const ingredientNames = ingredientsText
       .split(",")
       .map((name) => name.trim())
@@ -534,7 +528,6 @@ export default function App() {
           <section className="rounded-2xl border border-slate-200 bg-white p-6 lg:col-span-2">
             <h2 className="text-lg font-semibold text-slate-900">Add Recipe</h2>
             <p className="mt-1 text-sm text-slate-500">Fill out the form to create a new recipe.</p>
-            {!isAdmin ? <p className="mt-2 text-sm text-amber-700">Only admin can create recipes.</p> : null}
 
             <form onSubmit={handleSubmit} className="mt-5 space-y-4">
               <label className="block">
@@ -612,7 +605,7 @@ export default function App() {
               <div className="flex gap-2">
                 <button
                   type="submit"
-                  disabled={saving || !isAdmin}
+                  disabled={saving}
                   className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {saving ? "Saving..." : "Create Recipe"}

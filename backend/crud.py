@@ -201,27 +201,32 @@ def search_recipes(db: Session, query: str, scope: str = "all"):
         selectinload(Recipe.comments)
     )
 
+    def _with_authors(results: list[Recipe]):
+        _attach_recipe_authors(db, results)
+        _attach_comment_authors(db, results)
+        return results
+
     if not terms:
-        return base.all()
+        return _with_authors(base.all())
 
     if scope == "name":
         clauses = [or_(
             Recipe.title.ilike(f"%{t}%"),
             Recipe.description.ilike(f"%{t}%")
         ) for t in terms]
-        return base.filter(and_(*clauses)).all()
+        return _with_authors(base.filter(and_(*clauses)).all())
     if scope == "ingredients":
         clauses = [
             Recipe.ingredients.any(Ingredient.name.ilike(f"%{t}%"))
             for t in terms
         ]
-        return base.filter(and_(*clauses)).all()
+        return _with_authors(base.filter(and_(*clauses)).all())
     if scope == "tags":
         clauses = [
             Recipe.tags.any(Tag.name.ilike(f"%{t}%"))
             for t in terms
         ]
-        return base.filter(and_(*clauses)).all()
+        return _with_authors(base.filter(and_(*clauses)).all())
 
     clauses = [or_(
         Recipe.title.ilike(f"%{t}%"),
@@ -229,10 +234,7 @@ def search_recipes(db: Session, query: str, scope: str = "all"):
         Recipe.ingredients.any(Ingredient.name.ilike(f"%{t}%")),
         Recipe.tags.any(Tag.name.ilike(f"%{t}%"))
     ) for t in terms]
-    recipes = base.filter(and_(*clauses)).all()
-    _attach_recipe_authors(db, recipes)
-    _attach_comment_authors(db, recipes)
-    return recipes
+    return _with_authors(base.filter(and_(*clauses)).all())
 
 # Ingredients
 
