@@ -426,7 +426,10 @@ def create_ingredient(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
-    return crud.create_ingredient(db, ingredient)
+    try:
+        return crud.create_ingredient(db, ingredient)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 @app.get("/ingredients/", response_model=list[schemas.Ingredient])
 def read_ingredients(db: Session = Depends(get_db)):

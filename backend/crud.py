@@ -174,14 +174,18 @@ def create_recipe(db: Session, recipe: RecipeCreate, user_id: int):
     ingredient_entries = _extract_ingredient_entries(recipe.ingredients or [])
     ingredients = []
     ingredient_by_name = {}
+    missing_ingredients = []
     for name, _ in ingredient_entries:
         existing = db.query(Ingredient).filter(func.lower(Ingredient.name) == name).first()
         if not existing:
-            existing = Ingredient(name=name)
-            db.add(existing)
-            db.flush()
+            missing_ingredients.append(name)
+            continue
         ingredients.append(existing)
         ingredient_by_name[name] = existing
+
+    if missing_ingredients:
+        unique_missing = sorted(set(missing_ingredients))
+        raise ValueError(f"Unknown ingredients: {', '.join(unique_missing)}. Add them to the ingredient list first.")
 
     tag_names = _extract_unique_names(recipe.tags or [], "tags")
     tags = []
@@ -223,14 +227,18 @@ def update_recipe(db: Session, recipe_id: int, recipe: RecipeCreate):
     ingredient_entries = _extract_ingredient_entries(recipe.ingredients or [])
     ingredients = []
     ingredient_by_name = {}
+    missing_ingredients = []
     for name, _ in ingredient_entries:
         existing = db.query(Ingredient).filter(func.lower(Ingredient.name) == name).first()
         if not existing:
-            existing = Ingredient(name=name)
-            db.add(existing)
-            db.flush()
+            missing_ingredients.append(name)
+            continue
         ingredients.append(existing)
         ingredient_by_name[name] = existing
+
+    if missing_ingredients:
+        unique_missing = sorted(set(missing_ingredients))
+        raise ValueError(f"Unknown ingredients: {', '.join(unique_missing)}. Add them to the ingredient list first.")
 
     tag_names = _extract_unique_names(recipe.tags or [], "tags")
     tags = []
@@ -448,9 +456,15 @@ def get_ingredients(db: Session):
     return db.query(Ingredient).all()
 
 def create_ingredient(db: Session, ingredient: IngredientCreate):
-    data = ingredient.dict()
-    data["name"] = data["name"].strip().lower()
-    db_ingredient = Ingredient(**data)
+    normalized_name = (ingredient.name or "").strip().lower()
+    if not normalized_name:
+        raise ValueError("Ingredient name is required")
+
+    existing = db.query(Ingredient).filter(func.lower(Ingredient.name) == normalized_name).first()
+    if existing is not None:
+        raise ValueError("Ingredient already exists")
+
+    db_ingredient = Ingredient(name=normalized_name)
     db.add(db_ingredient)
     db.commit()
     db.refresh(db_ingredient)

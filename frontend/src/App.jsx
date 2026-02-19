@@ -225,6 +225,9 @@ export default function App() {
   const [commentDeletingId, setCommentDeletingId] = useState(null);
   const [commentLikingId, setCommentLikingId] = useState(null);
   const [likedCommentIds, setLikedCommentIds] = useState([]);
+  const [ingredientsCatalog, setIngredientsCatalog] = useState([]);
+  const [newIngredientName, setNewIngredientName] = useState("");
+  const [ingredientSaving, setIngredientSaving] = useState(false);
   const [pdfExporting, setPdfExporting] = useState(false);
   const [createIngredientFocusIndex, setCreateIngredientFocusIndex] = useState(null);
   const [editIngredientFocusIndex, setEditIngredientFocusIndex] = useState(null);
@@ -243,6 +246,10 @@ export default function App() {
   const favoriteRecipeIdSet = useMemo(() => new Set(favoriteRecipeIds), [favoriteRecipeIds]);
   const favoriteSavingRecipeIdSet = useMemo(() => new Set(favoriteSavingRecipeIds), [favoriteSavingRecipeIds]);
   const likedCommentIdSet = useMemo(() => new Set(likedCommentIds), [likedCommentIds]);
+  const ingredientNameSet = useMemo(
+    () => new Set((ingredientsCatalog || []).map((item) => String(item?.name || "").trim().toLowerCase()).filter(Boolean)),
+    [ingredientsCatalog]
+  );
 
   const sortedRecipes = useMemo(() => {
     const items = [...recipes];
@@ -328,6 +335,10 @@ export default function App() {
 
     return () => clearTimeout(timeoutId);
   }, [searchQuery, searchScope]);
+
+  useEffect(() => {
+    loadIngredients();
+  }, []);
 
   useEffect(() => {
     async function loadCurrentUser() {
@@ -524,6 +535,61 @@ export default function App() {
     }
   }
 
+  async function loadIngredients() {
+    try {
+      const response = await fetch(`${API_BASE}/ingredients/`);
+      if (!response.ok) {
+        throw new Error(await getApiErrorMessage(response, "Failed to load ingredients"));
+      }
+      const data = await response.json();
+      const items = Array.isArray(data) ? data : [];
+      items.sort((a, b) => String(a?.name || "").localeCompare(String(b?.name || "")));
+      setIngredientsCatalog(items);
+    } catch {
+      setIngredientsCatalog([]);
+    }
+  }
+
+  function findUnknownIngredients(ingredientEntries) {
+    const unknown = ingredientEntries
+      .map((item) => String(item?.name || "").trim().toLowerCase())
+      .filter((name) => name && !ingredientNameSet.has(name));
+    return [...new Set(unknown)];
+  }
+
+  async function handleAddIngredient(event) {
+    event.preventDefault();
+    if (!newIngredientName.trim()) {
+      setError("Ingredient name is required");
+      return;
+    }
+    if (!token) {
+      setError("Please log in to add ingredients");
+      return;
+    }
+
+    setIngredientSaving(true);
+    setError("");
+    setSuccessMessage("");
+    try {
+      const response = await fetch(`${API_BASE}/ingredients/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        body: JSON.stringify({ name: newIngredientName.trim() }),
+      });
+      if (!response.ok) {
+        throw new Error(await getApiErrorMessage(response, "Failed to add ingredient"));
+      }
+      setNewIngredientName("");
+      await loadIngredients();
+      setSuccessMessage("Ingredient added");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to add ingredient");
+    } finally {
+      setIngredientSaving(false);
+    }
+  }
+
   async function loadCommentLikes(recipeId, activeToken = token) {
     if (!activeToken || !recipeId) {
       setLikedCommentIds([]);
@@ -690,6 +756,15 @@ export default function App() {
 
     if (Object.keys(errors).length > 0) {
       setCreateValidationErrors(errors);
+      return;
+    }
+
+    const unknownIngredients = findUnknownIngredients(ingredientEntries);
+    if (unknownIngredients.length > 0) {
+      setCreateValidationErrors((previous) => ({
+        ...previous,
+        ingredients: `Unknown ingredients: ${unknownIngredients.join(", ")}. Add them to the ingredient list first.`,
+      }));
       return;
     }
 
@@ -956,6 +1031,15 @@ export default function App() {
 
     if (Object.keys(errors).length > 0) {
       setEditValidationErrors(errors);
+      return;
+    }
+
+    const unknownIngredients = findUnknownIngredients(ingredientEntries);
+    if (unknownIngredients.length > 0) {
+      setEditValidationErrors((previous) => ({
+        ...previous,
+        ingredients: `Unknown ingredients: ${unknownIngredients.join(", ")}. Add them to the ingredient list first.`,
+      }));
       return;
     }
 
@@ -1316,7 +1400,39 @@ export default function App() {
 
         <div className="grid gap-6 lg:grid-cols-5">
           <section className="rounded-2xl border border-slate-200 bg-white p-6 lg:col-span-2">
-            <h2 className="text-lg font-semibold text-slate-900">Add Recipe</h2>
+            <h2 className="text-lg font-semibold text-slate-900">Ingredients</h2>
+            <p className="mt-1 text-sm text-slate-500">Add ingredients one by one. Recipes can only use ingredients from this list.</p>
+
+            <form onSubmit={handleAddIngredient} className="mt-4 flex flex-col gap-2 sm:flex-row">
+              <input
+                type="text"
+                value={newIngredientName}
+                onChange={(event) => setNewIngredientName(event.target.value)}
+                placeholder="e.g. chicken"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-0 placeholder:text-slate-400 focus:border-slate-400"
+              />
+              <button
+                type="submit"
+                disabled={ingredientSaving || !newIngredientName.trim()}
+                className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {ingredientSaving ? "Adding..." : "Add Ingredient"}
+              </button>
+            </form>
+
+            <div className="mt-3 max-h-40 overflow-auto rounded-lg border border-slate-200 bg-slate-50 p-3">
+              {ingredientsCatalog.length === 0 ? (
+                <p className="text-sm text-slate-500">No ingredients yet.</p>
+              ) : (
+                <ul className="space-y-1 text-sm text-slate-700">
+                  {ingredientsCatalog.map((item) => (
+                    <li key={item.id}>• {toTitleCase(item.name)}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            <h2 className="mt-6 text-lg font-semibold text-slate-900">Add Recipe</h2>
             <p className="mt-1 text-sm text-slate-500">Fill out the form to create a new recipe.</p>
 
             <form onSubmit={handleSubmit} className="mt-5 space-y-4">
