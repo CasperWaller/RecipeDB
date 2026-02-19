@@ -10,6 +10,17 @@ from .database import engine, get_db, Base
 Base.metadata.create_all(bind=engine)
 
 
+def ensure_recipe_favorites_table():
+    inspector = inspect(engine)
+    table_names = set(inspector.get_table_names())
+    if "recipe_favorites" in table_names:
+        return
+    models.RecipeFavorite.__table__.create(bind=engine, checkfirst=True)
+
+
+ensure_recipe_favorites_table()
+
+
 def ensure_users_admin_column():
     inspector = inspect(engine)
     table_names = set(inspector.get_table_names())
