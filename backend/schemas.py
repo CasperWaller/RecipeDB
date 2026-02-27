@@ -125,3 +125,22 @@ class OnlineDevicesResponse(BaseModel):
 
 class PresenceHeartbeatRequest(BaseModel):
     device_id: str
+
+
+# --- Audit Log Schemas ---
+class AuditLogBase(BaseModel):
+    action: str
+    target_type: str
+    target_id: int | None = None
+    details: str | None = None
+
+class AuditLogCreate(AuditLogBase):
+    pass
+
+class AuditLog(AuditLogBase):
+    id: int
+    user_id: int
+    created_at: datetime
+    username: str | None = None
+    class Config:
+        orm_mode = True
