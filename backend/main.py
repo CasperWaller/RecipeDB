@@ -1,3 +1,11 @@
+import os
+from fastapi import FastAPI, Depends, HTTPException, Header
+from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.orm import Session
+from sqlalchemy import inspect, text
+from . import crud, models, schemas
+from .database import engine, get_db, Base
+
 def ensure_recipes_servings_column():
     inspector = inspect(engine)
     table_names = set(inspector.get_table_names())
@@ -10,13 +18,6 @@ def ensure_recipes_servings_column():
         connection.execute(text("ALTER TABLE recipes ADD COLUMN servings INTEGER"))
 
 ensure_recipes_servings_column()
-import os
-from fastapi import FastAPI, Depends, HTTPException, Header
-from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy.orm import Session
-from sqlalchemy import inspect, text
-from . import crud, models, schemas
-from .database import engine, get_db, Base
 
 ONLINE_DEVICE_WINDOW_SECONDS = int(os.getenv("ONLINE_DEVICE_WINDOW_SECONDS", "120"))
 
