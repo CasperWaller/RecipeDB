@@ -2144,12 +2144,11 @@ export default function App() {
                         ) : null}
                       </div>
                     </div>
-                    {selectedRecipe.description ? (
-                      <p className="mt-1 text-sm text-slate-600">{selectedRecipe.description}</p>
-                    ) : (
-                      <p className="mt-1 text-sm text-slate-500">No description</p>
-                    )}
 
+                    <div className="mt-1 text-sm text-slate-700">
+                      <strong>Prep/Cook:</strong>{" "}
+                      {selectedRecipe.prep_time ?? "-"} / {selectedRecipe.cook_time ?? "-"} min
+                    </div>
                     <div className="mt-3 text-sm text-slate-700">
                       <strong>Ingredients:</strong>{" "}
                       {(selectedRecipe.ingredients || []).length > 0
@@ -2161,15 +2160,16 @@ export default function App() {
                             .join(", ")
                         : "-"}
                     </div>
+                    {selectedRecipe.description ? (
+                      <p className="mt-1 text-sm text-slate-600">{selectedRecipe.description}</p>
+                    ) : (
+                      <p className="mt-1 text-sm text-slate-500">No description</p>
+                    )}
                     <div className="mt-1 text-sm text-slate-700">
                       <strong>Tags:</strong>{" "}
                       {(selectedRecipe.tags || []).length > 0
                         ? selectedRecipe.tags.map((item) => `#${item.name}`).join(", ")
                         : "-"}
-                    </div>
-                    <div className="mt-1 text-sm text-slate-700">
-                      <strong>Prep/Cook:</strong>{" "}
-                      {selectedRecipe.prep_time ?? "-"} / {selectedRecipe.cook_time ?? "-"} min
                     </div>
 
                     {editMode ? (
