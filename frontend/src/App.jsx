@@ -2161,7 +2161,16 @@ export default function App() {
                         : "-"}
                     </div>
                     {selectedRecipe.description ? (
-                      <p className="mt-1 text-sm text-slate-600">{selectedRecipe.description}</p>
+                      <div className="mt-1 text-sm text-slate-600 whitespace-pre-line">
+                        {selectedRecipe.description
+                          .split(/(?=\n)|(?<=\.)\s*(?=\d+\.)/g)
+                          .map((line, idx) => (
+                            <span key={idx}>
+                              {line.trim()}
+                              {line.match(/\d+\./) ? <br /> : null}
+                            </span>
+                          ))}
+                      </div>
                     ) : (
                       <p className="mt-1 text-sm text-slate-500">No description</p>
                     )}
