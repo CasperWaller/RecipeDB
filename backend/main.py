@@ -1,3 +1,15 @@
+def ensure_recipes_servings_column():
+    inspector = inspect(engine)
+    table_names = set(inspector.get_table_names())
+    if "recipes" not in table_names:
+        return
+    columns = {column["name"] for column in inspector.get_columns("recipes")}
+    if "servings" in columns:
+        return
+    with engine.begin() as connection:
+        connection.execute(text("ALTER TABLE recipes ADD COLUMN servings INTEGER"))
+
+ensure_recipes_servings_column()
 import os
 from fastapi import FastAPI, Depends, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware

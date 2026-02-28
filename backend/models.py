@@ -65,6 +65,7 @@ class Recipe(Base):
     instructions = Column(Text)
     prep_time = Column(Integer)
     cook_time = Column(Integer)
+    servings = Column(Integer)
     created_at = Column(TIMESTAMP, server_default=func.now())
     ingredients = relationship("Ingredient", secondary="recipe_ingredients", back_populates="recipes")
     tags = relationship("Tag", secondary="recipetags", back_populates="recipes")

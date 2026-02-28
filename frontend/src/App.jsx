@@ -54,6 +54,7 @@ function getInitialCreateDraft() {
     description: "",
     prepTime: "",
     cookTime: "",
+    servings: "",
     ingredientRows: [createEmptyIngredientRow()],
     tagsText: "",
   };
@@ -75,6 +76,7 @@ function getInitialCreateDraft() {
       description: String(parsed?.description || ""),
       prepTime: String(parsed?.prepTime || ""),
       cookTime: String(parsed?.cookTime || ""),
+      servings: String(parsed?.servings || ""),
       ingredientRows: rows.length > 0 ? rows : [createEmptyIngredientRow()],
       tagsText: String(parsed?.tagsText || ""),
     };
@@ -198,6 +200,7 @@ export default function App() {
   const [description, setDescription] = useState(createDraftSeed.description);
   const [prepTime, setPrepTime] = useState(createDraftSeed.prepTime);
   const [cookTime, setCookTime] = useState(createDraftSeed.cookTime);
+  const [servings, setServings] = useState(createDraftSeed.servings);
   const [ingredientRows, setIngredientRows] = useState(createDraftSeed.ingredientRows);
   const [tagsText, setTagsText] = useState(createDraftSeed.tagsText);
   const [editMode, setEditMode] = useState(false);
@@ -457,6 +460,7 @@ export default function App() {
       description.trim() ||
       prepTime.trim() ||
       cookTime.trim() ||
+      servings.trim() ||
       tagsText.trim() ||
       hasNonEmptyIngredient;
 
@@ -472,11 +476,12 @@ export default function App() {
         description,
         prepTime,
         cookTime,
+        servings,
         ingredientRows,
         tagsText,
       })
     );
-  }, [title, description, prepTime, cookTime, ingredientRows, tagsText]);
+  }, [title, description, prepTime, cookTime, servings, ingredientRows, tagsText]);
 
   useEffect(() => {
     let disposed = false;
@@ -1007,6 +1012,7 @@ export default function App() {
       description: description.trim() || null,
       prep_time: prepTime.trim() ? Number(prepTime) : null,
       cook_time: cookTime.trim() ? Number(cookTime) : null,
+      servings: servings.trim() ? Number(servings) : null,
       ingredients: ingredientEntries.map((item) => ({ name: item.name, quantity: item.quantity })),
       tags: tagNames.map((name) => ({ name })),
     };
@@ -1918,6 +1924,7 @@ export default function App() {
               </label>
 
               <div className="grid gap-4 sm:grid-cols-2">
+
                 <label className="block">
                   <span className="mb-1 block text-sm font-medium text-slate-700">Prep Time (min)</span>
                   <input
@@ -1953,6 +1960,25 @@ export default function App() {
                   />
                   {createValidationErrors.cookTime ? (
                     <p className="mt-1 text-xs text-rose-600">{createValidationErrors.cookTime}</p>
+                  ) : null}
+                </label>
+
+                <label className="block">
+                  <span className="mb-1 block text-sm font-medium text-slate-700">Servings</span>
+                  <input
+                    type="number"
+                    min="1"
+                    step="1"
+                    value={servings}
+                    onChange={(event) => {
+                      setServings(event.target.value);
+                      setCreateValidationErrors((previous) => ({ ...previous, servings: "" }));
+                    }}
+                    placeholder="e.g. 4"
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-0 placeholder:text-slate-400 focus:border-slate-400"
+                  />
+                  {createValidationErrors.servings ? (
+                    <p className="mt-1 text-xs text-rose-600">{createValidationErrors.servings}</p>
                   ) : null}
                 </label>
               </div>
@@ -2144,11 +2170,15 @@ export default function App() {
                         ) : null}
                       </div>
                     </div>
-
                     <div className="mt-1 text-sm text-slate-700">
                       <strong>Prep/Cook:</strong>{" "}
                       {selectedRecipe.prep_time ?? "-"} / {selectedRecipe.cook_time ?? "-"} min
                     </div>
+                    {selectedRecipe.servings != null && (
+                      <div className="mt-1 text-sm text-slate-700">
+                        <strong>Servings:</strong> {selectedRecipe.servings}
+                      </div>
+                    )}
                     <div className="mt-3 text-sm text-slate-700">
                       <strong>Ingredients:</strong>{" "}
                       {(selectedRecipe.ingredients || []).length > 0
