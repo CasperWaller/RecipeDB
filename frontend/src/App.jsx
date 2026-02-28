@@ -207,6 +207,7 @@ export default function App() {
   const [editTitle, setEditTitle] = useState("");
   const [editDescription, setEditDescription] = useState("");
   const [editPrepTime, setEditPrepTime] = useState("");
+    const [editServings, setEditServings] = useState("");
   const [editCookTime, setEditCookTime] = useState("");
   const [editIngredientRows, setEditIngredientRows] = useState([createEmptyIngredientRow()]);
   const [editTagsText, setEditTagsText] = useState("");
@@ -1226,6 +1227,7 @@ export default function App() {
     setEditTitle(selectedRecipe.title || "");
     setEditDescription(selectedRecipe.description || "");
     setEditPrepTime(selectedRecipe.prep_time != null ? String(selectedRecipe.prep_time) : "");
+      setEditServings(selectedRecipe.servings != null ? String(selectedRecipe.servings) : "");
     setEditCookTime(selectedRecipe.cook_time != null ? String(selectedRecipe.cook_time) : "");
     const ingredientEntries = (selectedRecipe.ingredient_measurements || []).map((item) => ({
       name: item.name,
@@ -1290,6 +1292,7 @@ export default function App() {
       description: editDescription.trim() || null,
       prep_time: editPrepTime.trim() ? Number(editPrepTime) : null,
       cook_time: editCookTime.trim() ? Number(editCookTime) : null,
+      servings: editServings.trim() ? Number(editServings) : null,
       ingredients: ingredientEntries.map((item) => ({ name: item.name, quantity: item.quantity })),
       tags: tagNames.map((name) => ({ name })),
     };
@@ -2271,6 +2274,23 @@ export default function App() {
                             />
                             {editValidationErrors.cookTime ? (
                               <p className="mt-1 text-xs text-rose-600">{editValidationErrors.cookTime}</p>
+                            ) : null}
+                          </label>
+                          <label className="block">
+                            <span className="mb-1 block text-xs font-medium text-slate-700">Servings</span>
+                            <input
+                              type="number"
+                              min="1"
+                              step="1"
+                              value={editServings}
+                              onChange={(event) => {
+                                setEditServings(event.target.value);
+                                setEditValidationErrors((previous) => ({ ...previous, servings: "" }));
+                              }}
+                              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-0 focus:border-slate-400"
+                            />
+                            {editValidationErrors.servings ? (
+                              <p className="mt-1 text-xs text-rose-600">{editValidationErrors.servings}</p>
                             ) : null}
                           </label>
                         </div>
