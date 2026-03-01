@@ -1,5 +1,18 @@
 # Deployment Guide
 
+## Backend (Railway)
+
+This repo includes `railway.json` for Railway deploy.
+
+1. Push repository to GitHub.
+2. In Railway, create a new project and select **Deploy from GitHub repo**.
+3. Railway will automatically detect the `railway.json` and build using the `Dockerfile`.
+4. Set environment variables on the service:
+   - `DATABASE_URL` = your managed Postgres URL (add a Railway Postgres plugin or use an external DB)
+   - `CORS_ORIGINS` = your frontend URL (for example `https://your-app.vercel.app`)
+5. Deploy. Backend will run with:
+   - `uvicorn backend.main:app --host 0.0.0.0 --port $PORT`
+
 ## Backend (Render)
 
 This repo includes `render.yaml` for blueprint deploy.

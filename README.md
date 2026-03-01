@@ -9,7 +9,7 @@ Full-stack recipe app with:
 
 - [ ] Push latest code to GitHub
 - [ ] Provision managed Postgres
-- [ ] Deploy backend on Render using [render.yaml](render.yaml)
+- [ ] Deploy backend on Railway using [railway.json](railway.json) **or** on Render using [render.yaml](render.yaml)
 - [ ] Set backend env vars:
   - [ ] `DATABASE_URL`
   - [ ] `CORS_ORIGINS` (your frontend URL)
