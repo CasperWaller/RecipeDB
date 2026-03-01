@@ -22,6 +22,7 @@ from .schemas import RecipeCreate, IngredientCreate, TagCreate, CommentCreate
 
 
 VALID_QUANTITY_UNITS = {"ml", "cl", "dl", "l", "mg", "g", "kg", "st", "tsk", "msk", "krm"}
+DISPLAY_QUANTITY_UNITS = ["ml", "cl", "dl", "l", "g", "kg", "st", "tsk", "msk", "krm"]
 QUANTITY_PATTERN = re.compile(r"^\d+(?:[\.,]\d+)?\s*(ml|cl|dl|l|mg|g|kg|st|tsk|msk|krm)$", re.IGNORECASE)
 
 
@@ -417,7 +418,7 @@ def _normalize_quantity(raw_quantity: str | None):
     compact = re.sub(r"\s+", "", value)
     match = QUANTITY_PATTERN.match(compact)
     if not match:
-        raise ValueError(f"Use EU units: {', '.join(sorted(VALID_QUANTITY_UNITS))}. Example: 2 dl")
+        raise ValueError(f"Use EU units ({', '.join(DISPLAY_QUANTITY_UNITS)}) e.g. flour: 2 dl")
 
     unit = match.group(1).lower()
     if unit not in VALID_QUANTITY_UNITS:
