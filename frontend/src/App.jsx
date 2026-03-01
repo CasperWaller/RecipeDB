@@ -4,7 +4,7 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
 const VALID_QUANTITY_UNITS = [
   "ml", "cl", "dl", "l", "g", "kg", "st", "tsk", "msk", "krm"
 ];
-const QUANTITY_PATTERN = /^\d+(?:[.,]\d+)?\s*(ml|cl|dl|l|mg|g|kg|st|tsk|msk|krm)$/i;
+const QUANTITY_PATTERN = /^\d+(?:[.,]\d+)?\s*(ml|cl|dl|l|g|kg|st|tsk|msk|krm)$/i;
 const CREATE_DRAFT_STORAGE_KEY = "recipe_create_draft_v1";
 const DEVICE_ID_STORAGE_KEY = "recipe_device_id_v1";
 const SUCCESS_MESSAGE_TIMEOUT_MS = 3000;
@@ -1922,7 +1922,7 @@ export default function App() {
                     Add Ingredient
                   </button>
                 </div>
-                <p className="mt-1 text-xs text-slate-500">Use EU units: ml, cl, dl, l, mg, g, kg, st</p>
+                <p className="mt-1 text-xs text-slate-500">Use EU units: ml, cl, dl, l, mg, g, kg, st, tsk, msk, krm</p>
                 {createValidationErrors.ingredients ? (
                   <p className="mt-1 text-xs text-rose-600">{createValidationErrors.ingredients}</p>
                 ) : null}
@@ -2370,7 +2370,7 @@ export default function App() {
                               Add Ingredient
                             </button>
                           </div>
-                          <p className="mt-1 text-xs text-slate-500">Use EU units: ml, cl, dl, l, mg, g, kg, st</p>
+                          <p className="mt-1 text-xs text-slate-500">Use EU units: ml, cl, dl, l, mg, g, kg, st, tsk, msk, krm</p>
                           {editValidationErrors.ingredients ? (
                             <p className="mt-1 text-xs text-rose-600">{editValidationErrors.ingredients}</p>
                           ) : null}
