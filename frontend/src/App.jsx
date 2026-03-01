@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
 const VALID_QUANTITY_UNITS = [
-  "ml", "cl", "dl", "l", "mg", "g", "kg", "st", "tsk", "msk", "krm"
+  "ml", "cl", "dl", "l", "g", "kg", "st", "tsk", "msk", "krm"
 ];
 const QUANTITY_PATTERN = /^\d+(?:[.,]\d+)?\s*(ml|cl|dl|l|mg|g|kg|st|tsk|msk|krm)$/i;
 const CREATE_DRAFT_STORAGE_KEY = "recipe_create_draft_v1";
