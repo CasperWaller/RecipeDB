@@ -21,8 +21,8 @@ from .models import (
 from .schemas import RecipeCreate, IngredientCreate, TagCreate, CommentCreate
 
 
-VALID_QUANTITY_UNITS = {"ml", "cl", "dl", "l", "mg", "g", "kg", "st"}
-QUANTITY_PATTERN = re.compile(r"^\d+(?:[\.,]\d+)?\s*(ml|cl|dl|l|mg|g|kg|st)$", re.IGNORECASE)
+VALID_QUANTITY_UNITS = {"ml", "cl", "dl", "l", "mg", "g", "kg", "st", "tsk", "msk", "krm"}
+QUANTITY_PATTERN = re.compile(r"^\d+(?:[\.,]\d+)?\s*(ml|cl|dl|l|mg|g|kg|st|tsk|msk|krm)$", re.IGNORECASE)
 
 
 def _hash_password(password: str, salt: str | None = None):
@@ -417,7 +417,7 @@ def _normalize_quantity(raw_quantity: str | None):
     compact = re.sub(r"\s+", "", value)
     match = QUANTITY_PATTERN.match(compact)
     if not match:
-        raise ValueError("Quantity must use EU units like ml, dl, l, g, or kg (example: 2 dl)")
+        raise ValueError(f"Use EU units ({', '.join(sorted(VALID_QUANTITY_UNITS))}) e.g. flour: 2 dl")
 
     unit = match.group(1).lower()
     if unit not in VALID_QUANTITY_UNITS:
