@@ -417,7 +417,7 @@ def _normalize_quantity(raw_quantity: str | None):
     compact = re.sub(r"\s+", "", value)
     match = QUANTITY_PATTERN.match(compact)
     if not match:
-        raise ValueError(f"Use EU units ({', '.join(sorted(VALID_QUANTITY_UNITS))}) e.g. flour: 2 dl")
+        raise ValueError(f"Use EU units: {', '.join(sorted(VALID_QUANTITY_UNITS))}. Example: 2 dl")
 
     unit = match.group(1).lower()
     if unit not in VALID_QUANTITY_UNITS:
