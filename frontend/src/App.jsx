@@ -1838,7 +1838,7 @@ export default function App() {
                         type="text"
                         value={allowedUsernames}
                         onChange={e => setAllowedUsernames(e.target.value)}
-                        placeholder="username1, username2"
+                        placeholder="username, username"
                         className="rounded border px-2 py-1 text-sm"
                         style={{ minWidth: 110 }}
                       />
