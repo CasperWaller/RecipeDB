@@ -585,11 +585,17 @@ export default function App() {
         headers: { Authorization: `Bearer ${activeToken}` },
       });
       if (!response.ok) {
-        throw new Error(await getApiErrorMessage(response, "Failed to load favorites"));
+        let errorText = await response.text();
+        // Log the full response for debugging
+        // eslint-disable-next-line no-console
+        console.error('Failed to load favorites:', response.status, errorText);
+        throw new Error(await getApiErrorMessage(response, "Failed to load favorites") + ` (status: ${response.status})\nResponse: ${errorText}`);
       }
       const data = await response.json();
       setFavoriteRecipeIds(Array.isArray(data?.recipe_ids) ? data.recipe_ids : []);
-    } catch {
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error('Error in loadFavorites:', err);
       setFavoriteRecipeIds([]);
     }
   }
