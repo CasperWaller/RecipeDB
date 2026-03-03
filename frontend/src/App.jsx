@@ -337,10 +337,18 @@ export default function App() {
         params.set("scope", scope);
       }
       const url = `${API_BASE}/recipes/${params.toString() ? `?${params.toString()}` : ""}`;
-      const response = await fetch(url);
+      const response = await fetch(url, token ? { headers: { Authorization: `Bearer ${token}` } } : undefined);
       if (!response.ok) {
-        setBackendStatus("disconnected");
-        throw new Error(await getApiErrorMessage(response, "Failed to load recipes"));
+        if (response.status === 401) {
+          setBackendStatus("connected");
+          setError("You are not authorized. Please log in.");
+        } else {
+          setBackendStatus("disconnected");
+          setError(await getApiErrorMessage(response, "Failed to load recipes"));
+        }
+        setRecipes([]);
+        setSelectedRecipeId(null);
+        return;
       }
       const data = await response.json();
       setBackendStatus("connected");
