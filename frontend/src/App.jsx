@@ -186,6 +186,14 @@ async function getApiErrorMessage(response, fallback) {
 }
 
 export default function App() {
+  // Parse recipe id from URL on initial load
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const recipeId = params.get("recipe");
+    if (recipeId && !isNaN(Number(recipeId))) {
+      setSelectedRecipeId(Number(recipeId));
+    }
+  }, []);
     // Privacy state for create
     const [isPublic, setIsPublic] = useState(true);
     const [allowedUsernames, setAllowedUsernames] = useState("");
