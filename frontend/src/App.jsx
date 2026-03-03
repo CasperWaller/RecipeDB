@@ -2200,6 +2200,8 @@ export default function App() {
                           </button>
                           <button
                             type="button"
+                            aria-label="Share recipe"
+                            title="Share recipe"
                             onClick={async () => {
                               const url = `${window.location.origin}${window.location.pathname}?recipe=${selectedRecipe.id}`;
                               const shareData = {
@@ -2223,9 +2225,12 @@ export default function App() {
                                 }
                               }
                             }}
-                            className="rounded-md border border-blue-500 px-2.5 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-60"
+                            className="rounded-full border border-blue-500 p-2 text-blue-700 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-60 flex items-center justify-center"
+                            style={{ width: 32, height: 32 }}
                           >
-                            Share via Messages
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" width="16" height="16" aria-hidden="true">
+                              <path d="M15 8a3 3 0 0 0-2.24 5.01l-5.1 2.55a3 3 0 1 0 .45 1.53l5.1-2.55A3 3 0 1 0 15 8zm0 2a1 1 0 1 1 0 2 1 1 0 0 1 0-2zM5 17a1 1 0 1 1 0-2 1 1 0 0 1 0 2zm10-7a1 1 0 1 1 0-2 1 1 0 0 1 0 2z" />
+                            </svg>
                           </button>
                           {currentUser ? (
                             <button
