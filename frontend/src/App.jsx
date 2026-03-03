@@ -2613,10 +2613,10 @@ export default function App() {
                     <button
                       type="button"
                       onClick={() => setSelectedRecipeId(recipe.id)}
-                      className={`w-full rounded-xl border p-4 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${
+                      className={`w-full rounded-xl border p-4 text-left transition focus:outline-none focus-visible:ring-4 focus-visible:ring-blue-500 focus-visible:bg-blue-50 ${
                         selectedRecipeId === recipe.id
                           ? "border-slate-900 bg-slate-100"
-                          : "border-slate-300 bg-white hover:bg-slate-50"
+                          : "border-gray-500 bg-white hover:bg-slate-100"
                       }`}
                       aria-pressed={selectedRecipeId === recipe.id}
                       tabIndex={0}
