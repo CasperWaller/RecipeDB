@@ -340,13 +340,23 @@ def create_recipe(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
+from fastapi import Security
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+
+bearer_scheme = HTTPBearer(auto_error=False)
+
 @app.get("/recipes/", response_model=list[schemas.Recipe])
 def read_recipes(
     query: str | None = None,
     scope: str = "all",
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user),
+    credentials: HTTPAuthorizationCredentials = Security(bearer_scheme),
 ):
+    user = None
+    if credentials and credentials.scheme.lower() == "bearer":
+        token = credentials.credentials
+        user = crud.get_user_by_token(db, token, touch=True)
+
     if query:
         scope = scope.strip().lower()
         allowed = {"all", "name", "ingredients", "tags"}
@@ -357,18 +367,18 @@ def read_recipes(
         recipes = crud.get_recipes(db)
 
     # Admins and superadmins see all recipes; others only see public or allowed/private
-    if current_user.is_admin or current_user.is_super_admin:
+    if user and (user.is_admin or user.is_super_admin):
         return recipes
 
     visible = []
     for recipe in recipes:
         if recipe.is_public:
             visible.append(recipe)
-        else:
+        elif user:
             allowed_usernames = set(getattr(recipe, 'allowed_usernames', []) or [])
             if (
-                current_user.username == getattr(recipe, 'created_by_username', None)
-                or current_user.username in allowed_usernames
+                user.username == getattr(recipe, 'created_by_username', None)
+                or user.username in allowed_usernames
             ):
                 visible.append(recipe)
     return visible
