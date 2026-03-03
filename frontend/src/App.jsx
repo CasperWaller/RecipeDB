@@ -1839,8 +1839,7 @@ export default function App() {
                         value={allowedUsernames}
                         onChange={e => setAllowedUsernames(e.target.value)}
                         placeholder="username, username"
-                        className="rounded border px-2 py-1 text-sm"
-                        style={{ minWidth: 110 }}
+                        className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-0 focus:border-slate-400"
                       />
                     </label>
                   )}
@@ -2256,8 +2255,7 @@ export default function App() {
                                 value={editAllowedUsernames}
                                 onChange={e => setEditAllowedUsernames(e.target.value)}
                                 placeholder="username1, username2"
-                                className="rounded border px-2 py-1 text-xs"
-                                style={{ minWidth: 120 }}
+                                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-0 focus:border-slate-400"
                               />
                             </label>
                           )}
