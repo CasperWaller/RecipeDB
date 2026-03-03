@@ -2228,8 +2228,9 @@ export default function App() {
                             className="rounded-full border border-blue-500 p-2 text-blue-700 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-60 flex items-center justify-center"
                             style={{ width: 32, height: 32 }}
                           >
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" width="16" height="16" aria-hidden="true">
-                              <path d="M15 8a3 3 0 0 0-2.24 5.01l-5.1 2.55a3 3 0 1 0 .45 1.53l5.1-2.55A3 3 0 1 0 15 8zm0 2a1 1 0 1 1 0 2 1 1 0 0 1 0-2zM5 17a1 1 0 1 1 0-2 1 1 0 0 1 0 2zm10-7a1 1 0 1 1 0-2 1 1 0 0 1 0 2z" />
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="16" height="16" aria-hidden="true">
+                              <path d="M22 2L11 13" />
+                              <path d="M22 2L15 22L11 13L2 9L22 2Z" />
                             </svg>
                           </button>
                           {currentUser ? (
