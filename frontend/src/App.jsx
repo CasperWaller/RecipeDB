@@ -1590,9 +1590,9 @@ export default function App() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-50">
-      <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
-        <header className="mb-8 flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-6 sm:flex-row sm:items-center sm:justify-between">
+    <main className="min-h-screen bg-slate-50" aria-label="Recipe App Main Content">
+      <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8" aria-label="Main Content Wrapper">
+        <header className="mb-8 flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-6 sm:flex-row sm:items-center sm:justify-between" aria-label="App Header">
           <div>
             <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">Recipe App</h1>
             <p className="mt-1 text-sm text-slate-600">Create and browse your recipes in one place.</p>
@@ -1607,7 +1607,7 @@ export default function App() {
           </a>
         </header>
 
-        <section className="mb-6 rounded-2xl border border-slate-200 bg-white p-4">
+        <section className="mb-6 rounded-2xl border border-slate-200 bg-white p-4" aria-label="User Authentication">
           {currentUser ? (
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-sm text-slate-700">
@@ -1725,7 +1725,7 @@ export default function App() {
           </section>
         ) : null}
 
-        <div className="mb-6 grid gap-4 sm:grid-cols-4">
+        <div className="mb-6 grid gap-4 sm:grid-cols-4" aria-label="App Stats">
           <div className="rounded-xl border border-slate-200 bg-white p-4">
             <p className="text-sm text-slate-500">Total recipes</p>
             <p className="mt-1 text-2xl font-semibold text-slate-900">{recipes.length}</p>
@@ -1758,7 +1758,7 @@ export default function App() {
           </div>
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-5">
+        <div className="grid gap-6 lg:grid-cols-5" aria-label="Main Content Sections">
           <section className={`${isAdmin ? "" : "hidden"} rounded-2xl border border-slate-200 bg-white p-6 lg:col-span-2`}>
             {isAdmin ? (
               <>
@@ -2101,7 +2101,7 @@ export default function App() {
             )}
           </section>
 
-          <section className={`rounded-2xl border border-slate-200 bg-white p-6 ${isAdmin ? "lg:col-span-3" : "lg:col-span-5"}`}>
+          <section className={`rounded-2xl border border-slate-200 bg-white p-6 ${isAdmin ? "lg:col-span-3" : "lg:col-span-5"}`} aria-label="Recipe List and Details">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-lg font-semibold text-slate-900">Recipes</h2>
               {loading ? <span className="text-sm text-slate-500">Loading...</span> : null}
