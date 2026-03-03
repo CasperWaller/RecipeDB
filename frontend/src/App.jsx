@@ -1840,7 +1840,7 @@ export default function App() {
                         onChange={e => setAllowedUsernames(e.target.value)}
                         placeholder="username1, username2"
                         className="rounded border px-2 py-1 text-sm"
-                        style={{ minWidth: 120 }}
+                        style={{ minWidth: 110 }}
                       />
                     </label>
                   )}
