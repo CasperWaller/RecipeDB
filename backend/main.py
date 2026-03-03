@@ -341,14 +341,37 @@ def create_recipe(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 @app.get("/recipes/", response_model=list[schemas.Recipe])
-def read_recipes(query: str | None = None, scope: str = "all", db: Session = Depends(get_db)):
+def read_recipes(
+    query: str | None = None,
+    scope: str = "all",
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
     if query:
         scope = scope.strip().lower()
         allowed = {"all", "name", "ingredients", "tags"}
         if scope not in allowed:
             raise HTTPException(status_code=400, detail="Invalid scope")
-        return crud.search_recipes(db, query, scope=scope)
-    return crud.get_recipes(db)
+        recipes = crud.search_recipes(db, query, scope=scope)
+    else:
+        recipes = crud.get_recipes(db)
+
+    # Admins and superadmins see all recipes; others only see public or allowed/private
+    if current_user.is_admin or current_user.is_super_admin:
+        return recipes
+
+    visible = []
+    for recipe in recipes:
+        if recipe.is_public:
+            visible.append(recipe)
+        else:
+            allowed_usernames = set(getattr(recipe, 'allowed_usernames', []) or [])
+            if (
+                current_user.username == getattr(recipe, 'created_by_username', None)
+                or current_user.username in allowed_usernames
+            ):
+                visible.append(recipe)
+    return visible
 
 @app.get("/recipes/{recipe_id}", response_model=schemas.Recipe)
 def read_recipe(recipe_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):

@@ -1016,6 +1016,13 @@ export default function App() {
 
     setSaving(true);
 
+    // Deduplicate allowed usernames
+    let allowedUsernamesArray = allowedUsernames
+      .split(',')
+      .map((u) => u.trim())
+      .filter((u) => u.length > 0);
+    allowedUsernamesArray = Array.from(new Set(allowedUsernamesArray));
+
     const payload = {
       title: title.trim(),
       description: description.trim() || null,
@@ -1024,6 +1031,8 @@ export default function App() {
       servings: servings.trim() ? Number(servings) : null,
       ingredients: ingredientEntries.map((item) => ({ name: item.name, quantity: item.quantity })),
       tags: tagNames.map((name) => ({ name })),
+      is_public: isPublic,
+      allowed_usernames: allowedUsernamesArray,
     };
 
     try {
@@ -1295,6 +1304,13 @@ export default function App() {
       return;
     }
 
+    // Deduplicate allowed usernames for edit
+    let editAllowedUsernamesArray = editAllowedUsernames
+      .split(',')
+      .map((u) => u.trim())
+      .filter((u) => u.length > 0);
+    editAllowedUsernamesArray = Array.from(new Set(editAllowedUsernamesArray));
+
     const payload = {
       title: editTitle.trim(),
       description: editDescription.trim() || null,
@@ -1303,6 +1319,8 @@ export default function App() {
       servings: editServings.trim() ? Number(editServings) : null,
       ingredients: ingredientEntries.map((item) => ({ name: item.name, quantity: item.quantity })),
       tags: tagNames.map((name) => ({ name })),
+      is_public: editIsPublic,
+      allowed_usernames: editAllowedUsernamesArray,
     };
 
     setEditSaving(true);
