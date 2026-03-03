@@ -186,6 +186,12 @@ async function getApiErrorMessage(response, fallback) {
 }
 
 export default function App() {
+    // Privacy state for create
+    const [isPublic, setIsPublic] = useState(true);
+    const [allowedUsernames, setAllowedUsernames] = useState("");
+    // Privacy state for edit
+    const [editIsPublic, setEditIsPublic] = useState(true);
+    const [editAllowedUsernames, setEditAllowedUsernames] = useState("");
   const [createDraftSeed] = useState(() => getInitialCreateDraft());
   const SORT_STORAGE_KEY = "recipe_sort_by";
   const allowedSortModes = new Set(["newest", "prep", "title", "favorites"]);
