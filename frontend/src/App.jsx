@@ -2190,6 +2190,21 @@ export default function App() {
                           >
                             {pdfExporting ? "Exporting..." : "Export PDF"}
                           </button>
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              const url = `${window.location.origin}${window.location.pathname}?recipe=${selectedRecipe.id}`;
+                              try {
+                                await navigator.clipboard.writeText(url);
+                                setSuccessMessage("Recipe link copied! You can now share it via SMS.");
+                              } catch (err) {
+                                setError("Failed to copy link");
+                              }
+                            }}
+                            className="rounded-md border border-blue-300 px-2.5 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            Share Recipe
+                          </button>
                           {currentUser ? (
                             <button
                               type="button"
