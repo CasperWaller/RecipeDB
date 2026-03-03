@@ -2202,16 +2202,30 @@ export default function App() {
                             type="button"
                             onClick={async () => {
                               const url = `${window.location.origin}${window.location.pathname}?recipe=${selectedRecipe.id}`;
-                              try {
-                                await navigator.clipboard.writeText(url);
-                                setSuccessMessage("Recipe link copied! You can now share it via SMS.");
-                              } catch (err) {
-                                setError("Failed to copy link");
+                              const shareData = {
+                                title: selectedRecipe.title,
+                                text: `Check out this recipe: ${selectedRecipe.title}`,
+                                url,
+                              };
+                              if (navigator.share) {
+                                try {
+                                  await navigator.share(shareData);
+                                  setSuccessMessage("Shared via your messaging app!");
+                                } catch (err) {
+                                  setError("Share cancelled or failed");
+                                }
+                              } else {
+                                try {
+                                  await navigator.clipboard.writeText(url);
+                                  setSuccessMessage("Recipe link copied! You can now share it via SMS or chat.");
+                                } catch (err) {
+                                  setError("Failed to copy link");
+                                }
                               }
                             }}
-                            className="rounded-md border border-blue-300 px-2.5 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-60"
+                            className="rounded-md border border-blue-500 px-2.5 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-60"
                           >
-                            Share Recipe
+                            Share via Messages
                           </button>
                           {currentUser ? (
                             <button
