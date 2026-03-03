@@ -6,16 +6,28 @@ from sqlalchemy import inspect, text
 from . import crud, models, schemas
 from .database import engine, get_db, Base
 
+
 def ensure_recipes_servings_column():
     inspector = inspect(engine)
     table_names = set(inspector.get_table_names())
     if "recipes" not in table_names:
         return
     columns = {column["name"] for column in inspector.get_columns("recipes")}
-    if "servings" in columns:
-        return
-    with engine.begin() as connection:
-        connection.execute(text("ALTER TABLE recipes ADD COLUMN servings INTEGER"))
+    if "servings" not in columns:
+        with engine.begin() as connection:
+            connection.execute(text("ALTER TABLE recipes ADD COLUMN servings INTEGER"))
+    if "is_public" not in columns:
+        with engine.begin() as connection:
+            connection.execute(text("ALTER TABLE recipes ADD COLUMN is_public BOOLEAN NOT NULL DEFAULT TRUE"))
+
+def ensure_recipe_allowed_users_table():
+    inspector = inspect(engine)
+    table_names = set(inspector.get_table_names())
+    if "recipe_allowed_users" not in table_names:
+        from . import models
+        models.RecipeAllowedUser.__table__.create(bind=engine, checkfirst=True)
+
+ensure_recipe_allowed_users_table()
 
 ensure_recipes_servings_column()
 
@@ -339,10 +351,20 @@ def read_recipes(query: str | None = None, scope: str = "all", db: Session = Dep
     return crud.get_recipes(db)
 
 @app.get("/recipes/{recipe_id}", response_model=schemas.Recipe)
-def read_recipe(recipe_id: int, db: Session = Depends(get_db)):
+def read_recipe(recipe_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
     recipe = crud.get_recipe(db, recipe_id)
     if recipe is None:
         raise HTTPException(status_code=404, detail="Recipe not found")
+    # Privacy enforcement
+    if not recipe.is_public:
+        # Only owner or allowed users can view
+        allowed_usernames = set(recipe.allowed_usernames or [])
+        if (
+            current_user.username != recipe.created_by_username
+            and current_user.username not in allowed_usernames
+            and not (current_user.is_admin or current_user.is_super_admin)
+        ):
+            raise HTTPException(status_code=403, detail="You do not have access to this recipe")
     return recipe
 
 @app.delete("/recipes/{recipe_id}", response_model=schemas.Recipe)

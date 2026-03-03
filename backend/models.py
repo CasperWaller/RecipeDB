@@ -57,6 +57,12 @@ class OnlineDevicePresence(Base):
     user_agent = Column(Text, nullable=True)
     last_seen_at = Column(TIMESTAMP, nullable=False, server_default=func.now())
 
+class RecipeAllowedUser(Base):
+    __tablename__ = "recipe_allowed_users"
+    recipe_id = Column(Integer, ForeignKey("recipes.id"), primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), primary_key=True)
+
+
 class Recipe(Base):
     __tablename__ = "recipes"
     id = Column(Integer, primary_key=True, index=True)
@@ -67,9 +73,11 @@ class Recipe(Base):
     cook_time = Column(Integer)
     servings = Column(Integer)
     created_at = Column(TIMESTAMP, server_default=func.now())
+    is_public = Column(Boolean, nullable=False, default=True, server_default="true")
     ingredients = relationship("Ingredient", secondary="recipe_ingredients", back_populates="recipes")
     tags = relationship("Tag", secondary="recipetags", back_populates="recipes")
     comments = relationship("RecipeComment", back_populates="recipe", cascade="all, delete-orphan")
+    allowed_users = relationship("User", secondary="recipe_allowed_users")
 
 class Ingredient(Base):
     __tablename__ = "ingredients"

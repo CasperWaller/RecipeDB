@@ -82,6 +82,8 @@ class RecipeBase(BaseModel):
     prep_time: Optional[int] = None
     cook_time: Optional[int] = None
     servings: Optional[int] = None
+    is_public: Optional[bool] = True
+    allowed_usernames: Optional[List[str]] = None
 
 class RecipeCreate(RecipeBase):
     ingredients: List[IngredientCreate] = Field(default_factory=list)
@@ -102,6 +104,7 @@ class Recipe(RecipeBase):
     created_by_username: Optional[str] = None
     favorite_count: int = 0
     servings: Optional[int] = None
+    allowed_usernames: Optional[List[str]] = None
     model_config = ConfigDict(from_attributes=True)
 
 

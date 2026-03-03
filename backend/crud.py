@@ -206,7 +206,7 @@ def get_recipe(db: Session, recipe_id: int):
     return recipe
 
 def create_recipe(db: Session, recipe: RecipeCreate, user_id: int):
-    recipe_data = recipe.dict(exclude={"ingredients", "tags"})
+    recipe_data = recipe.dict(exclude={"ingredients", "tags", "allowed_usernames"})
     db_recipe = Recipe(**recipe_data)
     db.add(db_recipe)
     db.flush()
@@ -242,6 +242,12 @@ def create_recipe(db: Session, recipe: RecipeCreate, user_id: int):
     db.flush()
     _apply_recipe_ingredient_quantities(db, db_recipe.id, ingredient_entries, ingredient_by_name)
     db.add(RecipeAuthor(recipe_id=db_recipe.id, user_id=user_id))
+
+    # Handle allowed users for private recipes
+    if not recipe.is_public:
+        allowed_usernames = recipe.allowed_usernames or []
+        allowed_users = db.query(User).filter(User.username.in_(allowed_usernames)).all() if allowed_usernames else []
+        db_recipe.allowed_users = allowed_users
     db.commit()
     db.refresh(db_recipe)
     _attach_recipe_authors(db, [db_recipe])
@@ -252,17 +258,20 @@ def create_recipe(db: Session, recipe: RecipeCreate, user_id: int):
 
 
 def update_recipe(db: Session, recipe_id: int, recipe: RecipeCreate):
-    db_recipe = db.query(Recipe).options(
+    recipe = db.query(Recipe).options(
         selectinload(Recipe.ingredients),
         selectinload(Recipe.tags),
         selectinload(Recipe.comments),
+        selectinload(Recipe.allowed_users)
     ).filter(Recipe.id == recipe_id).first()
-    if db_recipe is None:
-        return None
-
-    recipe_data = recipe.dict(exclude={"ingredients", "tags"})
-    for key, value in recipe_data.items():
-        setattr(db_recipe, key, value)
+    if recipe:
+        _attach_recipe_authors(db, [recipe])
+        _attach_favorite_counts(db, [recipe])
+        _attach_ingredient_measurements(db, [recipe])
+        _attach_comment_authors(db, [recipe])
+        # Attach allowed_usernames for API
+        recipe.allowed_usernames = [u.username for u in recipe.allowed_users] if recipe.allowed_users else []
+    return recipe
 
     ingredient_entries = _extract_ingredient_entries(recipe.ingredients or [])
     ingredients = []

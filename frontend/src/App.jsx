@@ -1820,6 +1820,25 @@ export default function App() {
 
             {isAdmin ? (
               <form onSubmit={handleSubmit} className="mt-5 space-y-4">
+                <div className="flex items-center gap-4">
+                  <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+                    <input type="checkbox" checked={isPublic} onChange={e => setIsPublic(e.target.checked)} />
+                    Public recipe (visible to everyone)
+                  </label>
+                  {!isPublic && (
+                    <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+                      Allowed users:
+                      <input
+                        type="text"
+                        value={allowedUsernames}
+                        onChange={e => setAllowedUsernames(e.target.value)}
+                        placeholder="username1, username2"
+                        className="rounded border px-2 py-1 text-sm"
+                        style={{ minWidth: 200 }}
+                      />
+                    </label>
+                  )}
+                </div>
               <label className="block">
                 <span className="mb-1 block text-sm font-medium text-slate-700">Title</span>
                 <input
@@ -2218,6 +2237,25 @@ export default function App() {
 
                     {editMode ? (
                       <form onSubmit={handleUpdateRecipe} className="mt-4 space-y-3 rounded-lg border border-slate-200 bg-white p-3">
+                        <div className="flex items-center gap-4">
+                          <label className="flex items-center gap-2 text-xs font-medium text-slate-700">
+                            <input type="checkbox" checked={editIsPublic} onChange={e => setEditIsPublic(e.target.checked)} />
+                            Public recipe (visible to everyone)
+                          </label>
+                          {!editIsPublic && (
+                            <label className="flex items-center gap-2 text-xs font-medium text-slate-700">
+                              Allowed users:
+                              <input
+                                type="text"
+                                value={editAllowedUsernames}
+                                onChange={e => setEditAllowedUsernames(e.target.value)}
+                                placeholder="username1, username2"
+                                className="rounded border px-2 py-1 text-xs"
+                                style={{ minWidth: 200 }}
+                              />
+                            </label>
+                          )}
+                        </div>
                         <p className="text-sm font-medium text-slate-900">Edit Recipe</p>
                         <label className="block">
                           <span className="mb-1 block text-xs font-medium text-slate-700">Title</span>
