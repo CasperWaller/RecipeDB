@@ -1829,7 +1829,7 @@ export default function App() {
                 <div className="flex items-center gap-4">
                   <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
                     <input type="checkbox" checked={isPublic} onChange={e => setIsPublic(e.target.checked)} />
-                    Public recipe (visible to everyone)
+                    Public recipe
                   </label>
                   {!isPublic && (
                     <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
@@ -1840,7 +1840,7 @@ export default function App() {
                         onChange={e => setAllowedUsernames(e.target.value)}
                         placeholder="username1, username2"
                         className="rounded border px-2 py-1 text-sm"
-                        style={{ minWidth: 200 }}
+                        style={{ minWidth: 120 }}
                       />
                     </label>
                   )}
@@ -2257,7 +2257,7 @@ export default function App() {
                                 onChange={e => setEditAllowedUsernames(e.target.value)}
                                 placeholder="username1, username2"
                                 className="rounded border px-2 py-1 text-xs"
-                                style={{ minWidth: 200 }}
+                                style={{ minWidth: 120 }}
                               />
                             </label>
                           )}
