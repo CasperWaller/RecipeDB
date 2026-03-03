@@ -373,6 +373,14 @@ def read_recipes(
                 visible.append(recipe)
     return visible
 
+@app.get("/recipes/favorites", response_model=schemas.RecipeFavoriteList)
+def read_favorites(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    recipe_ids = crud.get_favorite_recipe_ids(db, user_id=current_user.id)
+    return {"recipe_ids": recipe_ids}
+
 @app.get("/recipes/{recipe_id}", response_model=schemas.Recipe)
 def read_recipe(recipe_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
     recipe = crud.get_recipe(db, recipe_id)
