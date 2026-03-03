@@ -186,6 +186,21 @@ async function getApiErrorMessage(response, fallback) {
 }
 
 export default function App() {
+  // Dark mode state and effect
+  const [darkMode, setDarkMode] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('darkMode') === 'true';
+    }
+    return false;
+  });
+  useEffect(() => {
+    if (darkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+    localStorage.setItem('darkMode', darkMode);
+  }, [darkMode]);
   // Parse recipe id from URL on initial load
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -1590,18 +1605,38 @@ export default function App() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-50" aria-label="Recipe App Main Content">
+    <main className="min-h-screen bg-slate-50 dark:bg-slate-900" aria-label="Recipe App Main Content">
       <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8" aria-label="Main Content Wrapper">
-        <header className="mb-8 flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-6 sm:flex-row sm:items-center sm:justify-between" aria-label="App Header">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">Recipe App</h1>
-            <p className="mt-1 text-sm text-slate-600">Create and browse your recipes in one place.</p>
+        <header className="mb-8 flex flex-col gap-4 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-6 sm:flex-row sm:items-center sm:justify-between" aria-label="App Header">
+          <div className="flex items-center gap-4">
+            <div>
+              <h1 className="text-2xl font-bold text-slate-900 dark:text-white sm:text-3xl">Recipe App</h1>
+              <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">Create and browse your recipes in one place.</p>
+            </div>
+            <button
+              type="button"
+              aria-label={darkMode ? "Switch to light mode" : "Switch to dark mode"}
+              title={darkMode ? "Switch to light mode" : "Switch to dark mode"}
+              onClick={() => setDarkMode((prev) => !prev)}
+              className="ml-2 rounded-full border border-slate-300 dark:border-slate-600 p-2 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-600 transition"
+              style={{ width: 36, height: 36 }}
+            >
+              {darkMode ? (
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" width="20" height="20" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m8.66-13.66l-.71.71M4.05 19.95l-.71.71M21 12h-1M4 12H3m16.66 5.66l-.71-.71M4.05 4.05l-.71-.71M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                </svg>
+              ) : (
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" width="20" height="20" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12.79A9 9 0 1111.21 3a7 7 0 109.79 9.79z" />
+                </svg>
+              )}
+            </button>
           </div>
           <a
             href="http://127.0.0.1:8000/docs"
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center justify-center rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
+            className="inline-flex items-center justify-center rounded-lg border border-slate-300 dark:border-slate-600 px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700"
           >
             Open API Docs
           </a>
