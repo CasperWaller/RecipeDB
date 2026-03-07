@@ -19,6 +19,9 @@ def ensure_recipes_servings_column():
     if "is_public" not in columns:
         with engine.begin() as connection:
             connection.execute(text("ALTER TABLE recipes ADD COLUMN is_public BOOLEAN NOT NULL DEFAULT TRUE"))
+    if "allergens" not in columns:
+        with engine.begin() as connection:
+            connection.execute(text("ALTER TABLE recipes ADD COLUMN allergens TEXT"))
 
 def ensure_recipe_allowed_users_table():
     inspector = inspect(engine)

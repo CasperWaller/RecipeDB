@@ -6,6 +6,13 @@ const VALID_QUANTITY_UNITS = [
   "ml", "cl", "dl", "l", "g", "kg", "st", "tsk", "msk", "krm"
 ];
 const QUANTITY_PATTERN = /^\d+(?:[.,]\d+)?\s*(ml|cl|dl|l|g|kg|st|tsk|msk|krm)$/i;
+const ALLERGEN_OPTIONS = [
+  "dairy",
+  "eggs",
+  "shellfish",
+  "nuts",
+  "gluten",
+];
 const CREATE_DRAFT_STORAGE_KEY = "recipe_create_draft_v1";
 const DEVICE_ID_STORAGE_KEY = "recipe_device_id_v1";
 const SUCCESS_MESSAGE_TIMEOUT_MS = 3000;
@@ -60,6 +67,7 @@ function getInitialCreateDraft() {
     servings: "",
     ingredientRows: [createEmptyIngredientRow()],
     tagsText: "",
+    allergens: [],
   };
 
   try {
@@ -82,6 +90,9 @@ function getInitialCreateDraft() {
       servings: String(parsed?.servings || ""),
       ingredientRows: rows.length > 0 ? rows : [createEmptyIngredientRow()],
       tagsText: String(parsed?.tagsText || ""),
+      allergens: Array.isArray(parsed?.allergens)
+        ? parsed.allergens.map((item) => String(item))
+        : [],
     };
   } catch {
     return fallback;
@@ -235,6 +246,7 @@ export default function App() {
   const [servings, setServings] = useState(createDraftSeed.servings);
   const [ingredientRows, setIngredientRows] = useState(createDraftSeed.ingredientRows);
   const [tagsText, setTagsText] = useState(createDraftSeed.tagsText);
+  const [allergenFlags, setAllergenFlags] = useState(createDraftSeed.allergens);
   const [editMode, setEditMode] = useState(false);
   const [editTitle, setEditTitle] = useState("");
   const [editDescription, setEditDescription] = useState("");
@@ -243,6 +255,7 @@ export default function App() {
   const [editCookTime, setEditCookTime] = useState("");
   const [editIngredientRows, setEditIngredientRows] = useState([createEmptyIngredientRow()]);
   const [editTagsText, setEditTagsText] = useState("");
+  const [editAllergenFlags, setEditAllergenFlags] = useState([]);
   const [editSaving, setEditSaving] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchScope, setSearchScope] = useState("all");
@@ -503,6 +516,7 @@ export default function App() {
       cookTime.trim() ||
       servings.trim() ||
       tagsText.trim() ||
+      allergenFlags.length > 0 ||
       hasNonEmptyIngredient;
 
     if (!hasDraft) {
@@ -520,9 +534,10 @@ export default function App() {
         servings,
         ingredientRows,
         tagsText,
+        allergens: allergenFlags,
       })
     );
-  }, [title, description, prepTime, cookTime, servings, ingredientRows, tagsText]);
+  }, [title, description, prepTime, cookTime, servings, ingredientRows, tagsText, allergenFlags]);
 
   useEffect(() => {
     let disposed = false;
@@ -981,6 +996,14 @@ export default function App() {
     });
   }
 
+  function toggleAllergenFlag(setter, value) {
+    setter((previous) =>
+      previous.includes(value)
+        ? previous.filter((item) => item !== value)
+        : [...previous, value]
+    );
+  }
+
   function clearCreateDraft() {
     setTitle("");
     setDescription("");
@@ -988,6 +1011,7 @@ export default function App() {
     setCookTime("");
     setIngredientRows([createEmptyIngredientRow()]);
     setTagsText("");
+    setAllergenFlags([]);
     setCreateValidationErrors({});
     localStorage.removeItem(CREATE_DRAFT_STORAGE_KEY);
     setSuccessMessage("Draft cleared");
@@ -1071,6 +1095,7 @@ export default function App() {
       tags: tagNames.map((name) => ({ name })),
       is_public: isPublic,
       allowed_usernames: allowedUsernamesArray,
+      allergens: allergenFlags,
     };
 
     try {
@@ -1090,6 +1115,7 @@ export default function App() {
       setCookTime("");
       setIngredientRows([createEmptyIngredientRow()]);
       setTagsText("");
+      setAllergenFlags([]);
       localStorage.removeItem(CREATE_DRAFT_STORAGE_KEY);
       setCreateValidationErrors({});
       setSuccessMessage("Recipe created successfully");
@@ -1295,6 +1321,7 @@ export default function App() {
       setEditIngredientRows(fallbackRows.length > 0 ? fallbackRows : [createEmptyIngredientRow()]);
     }
     setEditTagsText((selectedRecipe.tags || []).map((item) => item.name).join(", "));
+    setEditAllergenFlags(Array.isArray(selectedRecipe.allergens) ? selectedRecipe.allergens : []);
     setEditValidationErrors({});
     setEditMode(true);
   }
@@ -1359,6 +1386,7 @@ export default function App() {
       tags: tagNames.map((name) => ({ name })),
       is_public: editIsPublic,
       allowed_usernames: editAllowedUsernamesArray,
+      allergens: editAllergenFlags,
     };
 
     setEditSaving(true);
@@ -1581,6 +1609,15 @@ export default function App() {
         doc.circle(margin + 4, cursorY - 4, 2, "F");
         writeTextLine(ingredientLabel, { x: margin + 12, maxWidth: contentWidth - 12, color: [51, 65, 85] });
       });
+    }
+    cursorY += 6;
+
+    writeSectionTitle("Allergens");
+    const allergens = selectedRecipe.allergens || [];
+    if (allergens.length === 0) {
+      writeTextLine("No allergens listed", { color: [100, 116, 139] });
+    } else {
+      writeTextLine(allergens.map((item) => toTitleCase(item)).join(", "), { color: [51, 65, 85] });
     }
     cursorY += 6;
 
@@ -2087,6 +2124,23 @@ export default function App() {
                 ) : null}
               </label>
 
+              <label className="block">
+                <span className="mb-1 block text-sm font-medium text-slate-700">Allergens</span>
+                <div className="flex flex-wrap gap-2">
+                  {ALLERGEN_OPTIONS.map((item) => (
+                    <label key={`create-allergen-${item}`} className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-3 py-1 text-xs font-medium text-slate-700">
+                      <input
+                        type="checkbox"
+                        checked={allergenFlags.includes(item)}
+                        onChange={() => toggleAllergenFlag(setAllergenFlags, item)}
+                      />
+                      {toTitleCase(item)}
+                    </label>
+                  ))}
+                </div>
+                <p className="mt-1 text-xs text-slate-500">Select common allergens present in the recipe.</p>
+              </label>
+
               <div className="flex gap-2">
                 <button
                   type="submit"
@@ -2332,6 +2386,12 @@ export default function App() {
                         ? selectedRecipe.tags.map((item) => `#${item.name}`).join(", ")
                         : "-"}
                     </div>
+                    <div className="mt-1 text-sm text-slate-700">
+                      <strong>Allergens:</strong>{" "}
+                      {(selectedRecipe.allergens || []).length > 0
+                        ? selectedRecipe.allergens.map((item) => toTitleCase(item)).join(", ")
+                        : "-"}
+                    </div>
 
                     {editMode ? (
                       <form onSubmit={handleUpdateRecipe} className="mt-4 space-y-3 rounded-lg border border-slate-200 bg-white p-3">
@@ -2524,6 +2584,21 @@ export default function App() {
                           {editValidationErrors.tags ? (
                             <p className="mt-1 text-xs text-rose-600">{editValidationErrors.tags}</p>
                           ) : null}
+                        </label>
+                        <label className="block">
+                          <span className="mb-1 block text-xs font-medium text-slate-700">Allergens</span>
+                          <div className="flex flex-wrap gap-2">
+                            {ALLERGEN_OPTIONS.map((item) => (
+                              <label key={`edit-allergen-${item}`} className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-3 py-1 text-xs font-medium text-slate-700">
+                                <input
+                                  type="checkbox"
+                                  checked={editAllergenFlags.includes(item)}
+                                  onChange={() => toggleAllergenFlag(setEditAllergenFlags, item)}
+                                />
+                                {toTitleCase(item)}
+                              </label>
+                            ))}
+                          </div>
                         </label>
                         <div className="flex gap-2">
                           <button

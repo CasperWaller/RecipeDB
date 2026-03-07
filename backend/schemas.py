@@ -1,6 +1,7 @@
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, field_validator
 from typing import Optional, List, Literal
 from datetime import datetime
+import json
 
 
 class UserCreate(BaseModel):
@@ -84,6 +85,27 @@ class RecipeBase(BaseModel):
     servings: Optional[int] = None
     is_public: Optional[bool] = True
     allowed_usernames: Optional[List[str]] = None
+    allergens: List[str] = Field(default_factory=list)
+
+    @field_validator("allergens", mode="before")
+    @classmethod
+    def normalize_allergens(cls, value):
+        if value is None:
+            return []
+        if isinstance(value, str):
+            raw = value.strip()
+            if not raw:
+                return []
+            try:
+                parsed = json.loads(raw)
+                if isinstance(parsed, list):
+                    return [str(item).strip().lower() for item in parsed if str(item).strip()]
+            except json.JSONDecodeError:
+                pass
+            return [item.strip().lower() for item in raw.split(",") if item.strip()]
+        if isinstance(value, (list, tuple, set)):
+            return [str(item).strip().lower() for item in value if str(item).strip()]
+        return []
 
 class RecipeCreate(RecipeBase):
     ingredients: List[IngredientCreate] = Field(default_factory=list)

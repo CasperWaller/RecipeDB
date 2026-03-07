@@ -72,6 +72,7 @@ class Recipe(Base):
     prep_time = Column(Integer)
     cook_time = Column(Integer)
     servings = Column(Integer)
+    allergens = Column(Text)
     created_at = Column(TIMESTAMP, server_default=func.now())
     is_public = Column(Boolean, nullable=False, default=True, server_default="true")
     ingredients = relationship("Ingredient", secondary="recipe_ingredients", back_populates="recipes")
