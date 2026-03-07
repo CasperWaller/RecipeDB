@@ -1614,24 +1614,6 @@ export default function App() {
               <h1 className="text-2xl font-bold text-slate-900 dark:text-white sm:text-3xl">Recipe App</h1>
               <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">Create and browse your recipes in one place.</p>
             </div>
-            <button
-              type="button"
-              aria-label={darkMode ? "Switch to light mode" : "Switch to dark mode"}
-              title={darkMode ? "Switch to light mode" : "Switch to dark mode"}
-              onClick={() => setDarkMode((prev) => !prev)}
-              className="ml-2 rounded-full border border-slate-300 dark:border-slate-600 p-2 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-600 transition"
-              style={{ width: 36, height: 36 }}
-            >
-              {darkMode ? (
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" width="20" height="20" aria-hidden="true">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m8.66-13.66l-.71.71M4.05 19.95l-.71.71M21 12h-1M4 12H3m16.66 5.66l-.71-.71M4.05 4.05l-.71-.71M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-                </svg>
-              ) : (
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" width="20" height="20" aria-hidden="true">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12.79A9 9 0 1111.21 3a7 7 0 109.79 9.79z" />
-                </svg>
-              )}
-            </button>
           </div>
           <a
             href="http://127.0.0.1:8000/docs"
