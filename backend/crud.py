@@ -662,6 +662,54 @@ def delete_recipe_comment(db: Session, recipe_id: int, comment_id: int):
     return db_comment
 
 
+def delete_comment_any(db: Session, comment_id: int):
+    db_comment = db.query(RecipeComment).filter(RecipeComment.id == comment_id).first()
+    if db_comment:
+        db.query(CommentLike).filter(CommentLike.comment_id == comment_id).delete(synchronize_session=False)
+        db.query(CommentAuthor).filter(CommentAuthor.comment_id == comment_id).delete(synchronize_session=False)
+        db.delete(db_comment)
+        db.commit()
+    return db_comment
+
+
+def get_all_comments(db: Session):
+    comments = db.query(RecipeComment).order_by(RecipeComment.created_at.desc()).all()
+    comment_ids = [item.id for item in comments]
+    if not comment_ids:
+        return comments
+
+    author_rows = db.query(CommentAuthor.comment_id, User.username).join(
+        User,
+        User.id == CommentAuthor.user_id,
+    ).filter(CommentAuthor.comment_id.in_(comment_ids)).all()
+    authors = {comment_id: username for comment_id, username in author_rows}
+
+    like_rows = db.query(
+        CommentLike.comment_id,
+        func.count(CommentLike.user_id),
+    ).filter(
+        CommentLike.comment_id.in_(comment_ids)
+    ).group_by(
+        CommentLike.comment_id
+    ).all()
+    like_counts = {comment_id: int(count) for comment_id, count in like_rows}
+
+    recipe_rows = db.query(
+        RecipeComment.id,
+        Recipe.id,
+        Recipe.title,
+    ).join(Recipe, Recipe.id == RecipeComment.recipe_id).filter(
+        RecipeComment.id.in_(comment_ids)
+    ).all()
+    recipe_titles = {comment_id: title for comment_id, _, title in recipe_rows}
+
+    for comment in comments:
+        comment.created_by_username = authors.get(comment.id)
+        comment.like_count = like_counts.get(comment.id, 0)
+        comment.recipe_title = recipe_titles.get(comment.id)
+    return comments
+
+
 def get_liked_comment_ids(db: Session, recipe_id: int, user_id: int):
     rows = db.query(CommentLike.comment_id).join(
         RecipeComment,

@@ -73,6 +73,7 @@ class Comment(CommentBase):
     created_at: Optional[datetime] = None
     created_by_username: Optional[str] = None
     like_count: int = 0
+    recipe_title: Optional[str] = None
     model_config = ConfigDict(from_attributes=True)
 
 # Recipe schemas

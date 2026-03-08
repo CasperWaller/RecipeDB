@@ -324,6 +324,10 @@ export default function App() {
   const [roleSelections, setRoleSelections] = useState({});
   const [usersLoading, setUsersLoading] = useState(false);
   const [roleSavingUserId, setRoleSavingUserId] = useState(null);
+  const [adminComments, setAdminComments] = useState([]);
+  const [adminCommentsLoading, setAdminCommentsLoading] = useState(false);
+  const [adminCommentDeletingId, setAdminCommentDeletingId] = useState(null);
+  const [adminCommentQuery, setAdminCommentQuery] = useState("");
   const [pdfExporting, setPdfExporting] = useState(false);
   const [cookModeOpen, setCookModeOpen] = useState(false);
   const [cookStepIndex, setCookStepIndex] = useState(0);
@@ -362,6 +366,20 @@ export default function App() {
     );
   }, [ingredientsCatalog, ingredientSearchTerm]);
   const ingredientAlreadyExists = Boolean(ingredientSearchTerm && ingredientNameSet.has(ingredientSearchTerm));
+  const adminCommentSearchTerm = adminCommentQuery.trim().toLowerCase();
+  const filteredAdminComments = useMemo(() => {
+    if (!adminCommentSearchTerm) {
+      return adminComments;
+    }
+    return (adminComments || []).filter((comment) => {
+      const content = String(comment?.content || "").toLowerCase();
+      const author = String(comment?.created_by_username || "").toLowerCase();
+      const recipe = String(comment?.recipe_title || "").toLowerCase();
+      return content.includes(adminCommentSearchTerm)
+        || author.includes(adminCommentSearchTerm)
+        || recipe.includes(adminCommentSearchTerm);
+    });
+  }, [adminComments, adminCommentSearchTerm]);
 
   const sortedRecipes = useMemo(() => {
     const items = [...recipes];
@@ -470,6 +488,7 @@ export default function App() {
         setLikedCommentIds([]);
         setManagedUsers([]);
         setRoleSelections({});
+        setAdminComments([]);
         return;
       }
 
@@ -485,6 +504,7 @@ export default function App() {
           setLikedCommentIds([]);
           setManagedUsers([]);
           setRoleSelections({});
+          setAdminComments([]);
           return;
         }
         const user = await response.json();
@@ -496,6 +516,7 @@ export default function App() {
         setLikedCommentIds([]);
         setManagedUsers([]);
         setRoleSelections({});
+        setAdminComments([]);
       }
     }
 
@@ -506,9 +527,11 @@ export default function App() {
     if (!token || !isSuperAdmin) {
       setManagedUsers([]);
       setRoleSelections({});
+      setAdminComments([]);
       return;
     }
     loadManagedUsers(token);
+    loadAdminComments(token);
   }, [token, isSuperAdmin]);
 
   useEffect(() => {
@@ -777,6 +800,62 @@ export default function App() {
       setRoleSelections({});
     } finally {
       setUsersLoading(false);
+    }
+  }
+
+  async function loadAdminComments(activeToken = token) {
+    if (!activeToken) {
+      setAdminComments([]);
+      return;
+    }
+    setAdminCommentsLoading(true);
+    try {
+      const response = await fetch(`${API_BASE}/admin/comments`, {
+        headers: { Authorization: `Bearer ${activeToken}` },
+      });
+      if (!response.ok) {
+        throw new Error(await getApiErrorMessage(response, "Failed to load comments"));
+      }
+      const data = await response.json();
+      setAdminComments(Array.isArray(data) ? data : []);
+    } catch {
+      setAdminComments([]);
+    } finally {
+      setAdminCommentsLoading(false);
+    }
+  }
+
+  async function handleAdminDeleteComment(commentId) {
+    if (!token) {
+      setError("Please log in to manage comments");
+      return;
+    }
+    if (!isSuperAdmin) {
+      setError("Only super admins can manage comments");
+      return;
+    }
+    const confirmed = window.confirm("Remove this comment?");
+    if (!confirmed) {
+      return;
+    }
+
+    setAdminCommentDeletingId(commentId);
+    setError("");
+    setSuccessMessage("");
+    try {
+      const response = await fetch(`${API_BASE}/admin/comments/${commentId}`, {
+        method: "DELETE",
+        headers: { ...getAuthHeaders() },
+      });
+      if (!response.ok) {
+        throw new Error(await getApiErrorMessage(response, "Failed to delete comment"));
+      }
+      setAdminComments((previous) => previous.filter((item) => item.id !== commentId));
+      setSuccessMessage("Comment removed");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete comment");
+    } finally {
+      setAdminCommentDeletingId(null);
     }
   }
 
@@ -1581,6 +1660,8 @@ export default function App() {
     setToken("");
     setCurrentUser(null);
     setFavoriteRecipeIds([]);
+    setAdminComments([]);
+    setAdminCommentQuery("");
     setSuccessMessage("Logged out successfully");
   }
 
@@ -1888,6 +1969,75 @@ export default function App() {
                     </li>
                   );
                 })}
+              </ul>
+            )}
+          </section>
+        ) : null}
+
+        {isSuperAdmin ? (
+          <section className="mb-6 rounded-2xl border border-slate-200 bg-white p-4">
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-base font-semibold text-slate-900">Comment Moderation</h2>
+              <button
+                type="button"
+                onClick={() => loadAdminComments()}
+                disabled={adminCommentsLoading}
+                className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {adminCommentsLoading ? "Loading..." : "Refresh"}
+              </button>
+            </div>
+            <div className="mb-3 flex flex-col gap-2 sm:flex-row">
+              <input
+                type="text"
+                value={adminCommentQuery}
+                onChange={(event) => setAdminCommentQuery(event.target.value)}
+                placeholder="Filter by recipe, author, or keyword"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-400"
+              />
+              <div className="text-xs text-slate-500 sm:self-center">
+                {filteredAdminComments.length} comments
+              </div>
+            </div>
+
+            {adminCommentsLoading ? (
+              <p className="text-sm text-slate-500">Loading comments...</p>
+            ) : filteredAdminComments.length === 0 ? (
+              <p className="text-sm text-slate-500">No comments found.</p>
+            ) : (
+              <ul className="space-y-2">
+                {filteredAdminComments.map((comment) => (
+                  <li key={`admin-comment-${comment.id}`} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <p className="text-sm text-slate-700">{comment.content}</p>
+                        <p className="mt-1 text-xs text-slate-500">
+                          {comment.created_by_username || "Unknown user"} · {comment.recipe_title || "Unknown recipe"}
+                        </p>
+                        {comment.created_at ? (
+                          <p className="mt-1 text-xs text-slate-400">{new Date(comment.created_at).toLocaleString()}</p>
+                        ) : null}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedRecipeId(comment.recipe_id)}
+                          className="rounded-lg border border-slate-300 px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100"
+                        >
+                          View Recipe
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleAdminDeleteComment(comment.id)}
+                          disabled={adminCommentDeletingId === comment.id}
+                          className="rounded-lg border border-rose-200 px-3 py-1 text-xs font-medium text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {adminCommentDeletingId === comment.id ? "Removing..." : "Remove"}
+                        </button>
+                      </div>
+                    </div>
+                  </li>
+                ))}
               </ul>
             )}
           </section>

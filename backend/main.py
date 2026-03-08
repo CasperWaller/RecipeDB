@@ -521,6 +521,28 @@ def remove_recipe_comment(
     return deleted_comment
 
 
+@app.get("/admin/comments", response_model=list[schemas.Comment])
+def read_all_comments(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(require_super_admin),
+):
+    _ = current_user
+    return crud.get_all_comments(db)
+
+
+@app.delete("/admin/comments/{comment_id}", response_model=schemas.Comment)
+def remove_any_comment(
+    comment_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(require_super_admin),
+):
+    _ = current_user
+    deleted_comment = crud.delete_comment_any(db, comment_id)
+    if deleted_comment is None:
+        raise HTTPException(status_code=404, detail="Comment not found")
+    return deleted_comment
+
+
 @app.get("/recipes/{recipe_id}/comment-likes", response_model=schemas.CommentLikeList)
 def read_comment_likes(
     recipe_id: int,
