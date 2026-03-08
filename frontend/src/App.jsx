@@ -54,6 +54,45 @@ function parseList(value) {
     .filter(Boolean);
 }
 
+function getCookSteps(recipe) {
+  const source = String(recipe?.instructions || recipe?.description || "").trim();
+  if (!source) {
+    return [];
+  }
+
+  const lines = source
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  if (lines.length > 1) {
+    return lines;
+  }
+
+  const numbered = source
+    .split(/\s*(?=\d+\.\s+)/)
+    .map((item) => item.replace(/^\d+\.\s*/, "").trim())
+    .filter(Boolean);
+  if (numbered.length > 1) {
+    return numbered;
+  }
+
+  const sentences = source
+    .split(/\.\s+/)
+    .map((item, index, items) => {
+      const trimmed = item.trim();
+      if (!trimmed) {
+        return "";
+      }
+      return index < items.length - 1 ? `${trimmed}.` : trimmed;
+    })
+    .filter(Boolean);
+  if (sentences.length > 1) {
+    return sentences;
+  }
+
+  return [source];
+}
+
 function createEmptyIngredientRow() {
   return { name: "", quantity: "" };
 }
@@ -286,6 +325,8 @@ export default function App() {
   const [usersLoading, setUsersLoading] = useState(false);
   const [roleSavingUserId, setRoleSavingUserId] = useState(null);
   const [pdfExporting, setPdfExporting] = useState(false);
+  const [cookModeOpen, setCookModeOpen] = useState(false);
+  const [cookStepIndex, setCookStepIndex] = useState(0);
   const [createIngredientFocusIndex, setCreateIngredientFocusIndex] = useState(null);
   const [editIngredientFocusIndex, setEditIngredientFocusIndex] = useState(null);
   const [showOnlyFavorites, setShowOnlyFavorites] = useState(false);
@@ -360,6 +401,8 @@ export default function App() {
     });
     return lookup;
   }, [selectedRecipe]);
+  const cookSteps = useMemo(() => getCookSteps(selectedRecipe), [selectedRecipe]);
+  const cookStep = cookSteps[cookStepIndex] || "";
 
   async function loadRecipes(options = {}) {
     const query = options.query ?? searchQuery;
@@ -492,6 +535,48 @@ export default function App() {
     }
     loadCommentLikes(selectedRecipeId, token);
   }, [selectedRecipeId, token]);
+
+  useEffect(() => {
+    if (!cookModeOpen) {
+      return;
+    }
+    setCookStepIndex((previous) => {
+      if (cookSteps.length === 0) {
+        return 0;
+      }
+      return Math.min(previous, cookSteps.length - 1);
+    });
+  }, [cookModeOpen, cookSteps.length]);
+
+  useEffect(() => {
+    if (!cookModeOpen) {
+      return;
+    }
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [cookModeOpen]);
+
+  useEffect(() => {
+    if (!cookModeOpen) {
+      return;
+    }
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") {
+        closeCookMode();
+        return;
+      }
+      if (event.key === "ArrowRight") {
+        moveCookStep(1);
+      } else if (event.key === "ArrowLeft") {
+        moveCookStep(-1);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [cookModeOpen, cookSteps.length, closeCookMode, moveCookStep]);
 
   useEffect(() => {
     localStorage.setItem(SORT_STORAGE_KEY, sortBy);
@@ -1002,6 +1087,34 @@ export default function App() {
         ? previous.filter((item) => item !== value)
         : [...previous, value]
     );
+  }
+
+  function openCookMode() {
+    if (!selectedRecipe) {
+      return;
+    }
+    setCookStepIndex(0);
+    setCookModeOpen(true);
+  }
+
+  function closeCookMode() {
+    setCookModeOpen(false);
+  }
+
+  function moveCookStep(delta) {
+    if (cookSteps.length === 0) {
+      return;
+    }
+    setCookStepIndex((previous) => {
+      const nextIndex = previous + delta;
+      if (nextIndex < 0) {
+        return 0;
+      }
+      if (nextIndex >= cookSteps.length) {
+        return cookSteps.length - 1;
+      }
+      return nextIndex;
+    });
   }
 
   function clearCreateDraft() {
@@ -2272,6 +2385,13 @@ export default function App() {
                           </button>
                           <button
                             type="button"
+                            onClick={openCookMode}
+                            className="rounded-md border border-slate-300 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100"
+                          >
+                            Cook Mode
+                          </button>
+                          <button
+                            type="button"
                             aria-label="Share recipe"
                             title="Share recipe"
                             onClick={async () => {
@@ -2731,6 +2851,91 @@ export default function App() {
           </section>
         </div>
       </div>
+      {cookModeOpen && selectedRecipe ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Cook mode"
+          onClick={closeCookMode}
+        >
+          <div
+            className="w-full max-w-4xl rounded-2xl bg-white p-6 shadow-xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Cook Mode</p>
+                <h2 className="mt-1 text-2xl font-semibold text-slate-900">{selectedRecipe.title}</h2>
+                <p className="mt-1 text-sm text-slate-600">Use Left/Right arrows to move steps, Esc to exit.</p>
+              </div>
+              <button
+                type="button"
+                onClick={closeCookMode}
+                className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="mt-6 grid gap-6 md:grid-cols-3">
+              <div className="md:col-span-2">
+                <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <span>Step {cookSteps.length > 0 ? cookStepIndex + 1 : 0} of {cookSteps.length}</span>
+                  <span>{selectedRecipe.prep_time ?? "-"} prep / {selectedRecipe.cook_time ?? "-"} cook</span>
+                </div>
+                <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-6">
+                  {cookSteps.length > 0 ? (
+                    <p className="text-xl font-semibold text-slate-900">{cookStep}</p>
+                  ) : (
+                    <p className="text-sm text-slate-600">No steps available. Add instructions or a description.</p>
+                  )}
+                </div>
+                <div className="mt-4 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => moveCookStep(-1)}
+                    disabled={cookStepIndex === 0}
+                    className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Prev
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => moveCookStep(1)}
+                    disabled={cookSteps.length === 0 || cookStepIndex >= cookSteps.length - 1}
+                    className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-sm font-semibold text-slate-900">Ingredients</h3>
+                {(selectedRecipe.ingredients || []).length > 0 ? (
+                  <ul className="mt-2 space-y-2 text-sm text-slate-700">
+                    {selectedRecipe.ingredients.map((item) => {
+                      const quantity = selectedIngredientQuantities.get(item.id);
+                      const label = quantity ? `${toTitleCase(item.name)} (${quantity})` : toTitleCase(item.name);
+                      return (
+                        <li key={`cook-ingredient-${item.id}`} className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                          {label}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                ) : (
+                  <p className="mt-2 text-sm text-slate-500">No ingredients listed.</p>
+                )}
+                <div className="mt-4 text-xs text-slate-500">
+                  Servings: {selectedRecipe.servings ?? "-"}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </main>
   );
 }
