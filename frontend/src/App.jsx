@@ -101,6 +101,7 @@ function getInitialCreateDraft() {
   const fallback = {
     title: "",
     description: "",
+    instructions: "",
     prepTime: "",
     cookTime: "",
     servings: "",
@@ -124,6 +125,7 @@ function getInitialCreateDraft() {
     return {
       title: String(parsed?.title || ""),
       description: String(parsed?.description || ""),
+      instructions: String(parsed?.instructions || ""),
       prepTime: String(parsed?.prepTime || ""),
       cookTime: String(parsed?.cookTime || ""),
       servings: String(parsed?.servings || ""),
@@ -280,6 +282,7 @@ export default function App() {
 
   const [title, setTitle] = useState(createDraftSeed.title);
   const [description, setDescription] = useState(createDraftSeed.description);
+  const [instructions, setInstructions] = useState(createDraftSeed.instructions);
   const [prepTime, setPrepTime] = useState(createDraftSeed.prepTime);
   const [cookTime, setCookTime] = useState(createDraftSeed.cookTime);
   const [servings, setServings] = useState(createDraftSeed.servings);
@@ -289,6 +292,7 @@ export default function App() {
   const [editMode, setEditMode] = useState(false);
   const [editTitle, setEditTitle] = useState("");
   const [editDescription, setEditDescription] = useState("");
+  const [editInstructions, setEditInstructions] = useState("");
   const [editPrepTime, setEditPrepTime] = useState("");
     const [editServings, setEditServings] = useState("");
   const [editCookTime, setEditCookTime] = useState("");
@@ -620,6 +624,7 @@ export default function App() {
     const hasDraft =
       title.trim() ||
       description.trim() ||
+      instructions.trim() ||
       prepTime.trim() ||
       cookTime.trim() ||
       servings.trim() ||
@@ -637,6 +642,7 @@ export default function App() {
       JSON.stringify({
         title,
         description,
+        instructions,
         prepTime,
         cookTime,
         servings,
@@ -645,7 +651,7 @@ export default function App() {
         allergens: allergenFlags,
       })
     );
-  }, [title, description, prepTime, cookTime, servings, ingredientRows, tagsText, allergenFlags]);
+  }, [title, description, instructions, prepTime, cookTime, servings, ingredientRows, tagsText, allergenFlags]);
 
   useEffect(() => {
     let disposed = false;
@@ -1199,6 +1205,7 @@ export default function App() {
   function clearCreateDraft() {
     setTitle("");
     setDescription("");
+    setInstructions("");
     setPrepTime("");
     setCookTime("");
     setIngredientRows([createEmptyIngredientRow()]);
@@ -1280,6 +1287,7 @@ export default function App() {
     const payload = {
       title: title.trim(),
       description: description.trim() || null,
+      instructions: instructions.trim() || null,
       prep_time: prepTime.trim() ? Number(prepTime) : null,
       cook_time: cookTime.trim() ? Number(cookTime) : null,
       servings: servings.trim() ? Number(servings) : null,
@@ -1303,6 +1311,7 @@ export default function App() {
 
       setTitle("");
       setDescription("");
+      setInstructions("");
       setPrepTime("");
       setCookTime("");
       setIngredientRows([createEmptyIngredientRow()]);
@@ -1499,6 +1508,7 @@ export default function App() {
 
     setEditTitle(selectedRecipe.title || "");
     setEditDescription(selectedRecipe.description || "");
+    setEditInstructions(selectedRecipe.instructions || "");
     setEditPrepTime(selectedRecipe.prep_time != null ? String(selectedRecipe.prep_time) : "");
       setEditServings(selectedRecipe.servings != null ? String(selectedRecipe.servings) : "");
     setEditCookTime(selectedRecipe.cook_time != null ? String(selectedRecipe.cook_time) : "");
@@ -1571,6 +1581,7 @@ export default function App() {
     const payload = {
       title: editTitle.trim(),
       description: editDescription.trim() || null,
+      instructions: editInstructions.trim() || null,
       prep_time: editPrepTime.trim() ? Number(editPrepTime) : null,
       cook_time: editCookTime.trim() ? Number(editCookTime) : null,
       servings: editServings.trim() ? Number(editServings) : null,
@@ -1788,6 +1799,10 @@ export default function App() {
 
     writeSectionTitle("Description");
     writeTextLine(selectedRecipe.description || "No description", { color: [51, 65, 85] });
+    cursorY += 6;
+
+    writeSectionTitle("Instructions");
+    writeTextLine(selectedRecipe.instructions || "No instructions", { color: [51, 65, 85] });
     cursorY += 6;
 
     writeSectionTitle("Ingredients");
@@ -2231,6 +2246,17 @@ export default function App() {
               </label>
 
               <label className="block">
+                <span className="mb-1 block text-sm font-medium text-slate-700">Instructions</span>
+                <textarea
+                  value={instructions}
+                  onChange={(event) => setInstructions(event.target.value)}
+                  placeholder="Write steps, one per line"
+                  rows={4}
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-0 placeholder:text-slate-400 focus:border-slate-400"
+                />
+              </label>
+
+              <label className="block">
                 <span className="mb-1 block text-sm font-medium text-slate-700">Ingredients</span>
                 <div className="space-y-2">
                   {ingredientRows.map((row, index) => (
@@ -2650,6 +2676,16 @@ export default function App() {
                     ) : (
                       <p className="mt-1 text-sm text-slate-500">No description</p>
                     )}
+                    {selectedRecipe.instructions ? (
+                      <div className="mt-3 text-sm text-slate-700 whitespace-pre-line">
+                        <strong>Instructions:</strong>
+                        <div className="mt-1 text-slate-600">
+                          {selectedRecipe.instructions}
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="mt-2 text-sm text-slate-500">No instructions</p>
+                    )}
                     <div className="mt-1 text-sm text-slate-700">
                       <strong>Tags:</strong>{" "}
                       {(selectedRecipe.tags || []).length > 0
@@ -2705,6 +2741,15 @@ export default function App() {
                             value={editDescription}
                             onChange={(event) => setEditDescription(event.target.value)}
                             rows={3}
+                            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-0 focus:border-slate-400"
+                          />
+                        </label>
+                        <label className="block">
+                          <span className="mb-1 block text-xs font-medium text-slate-700">Instructions</span>
+                          <textarea
+                            value={editInstructions}
+                            onChange={(event) => setEditInstructions(event.target.value)}
+                            rows={4}
                             className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-0 focus:border-slate-400"
                           />
                         </label>
